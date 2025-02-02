@@ -96,7 +96,7 @@ const cloudIconSVG = `
 const textSpan = document.createElement('span');
 textSpan.className =
 	'font-normal self-stretch text-center text-xs leading-4 md:leading-none';
-textSpan.innerText = 'bkup';
+textSpan.innerText = 'Sync';
 const iconSpan = document.createElement('span');
 iconSpan.className =
 	'block group-hover:bg-white/30 w-[35px] h-[35px] transition-all rounded-lg flex items-center justify-center group-hover:text-white/90';
