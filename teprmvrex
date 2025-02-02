@@ -1,16 +1,16 @@
-const VERSION = '20250202-18:54';
-let backupIntervalRunning = false;
+const VERSION = '222025';
+let bkupIntervalRunning = false;
 let wasImportSuccessful = false;
 let isExportInProgress = false;
 let isImportInProgress = false;
 let isSnapshotInProgress = false;
 let isConsoleLoggingEnabled = new URLSearchParams(window.location.search).get('log') === 'true';
-const TIME_BACKUP_INTERVAL = 15;
-const TIME_BACKUP_FILE_PREFIX = `T-${TIME_BACKUP_INTERVAL}`;
+const TIME_bkup_INTERVAL = 15;
+const TIME_bkup_FILE_PREFIX = `T-${TIME_bkup_INTERVAL}`;
 let awsSdkLoadPromise = null;
 const awsSdkPromise = loadAwsSdk();
 let isPageFullyLoaded = false;
-let backupInterval = null;
+let bkupInterval = null;
 let isWaitingForUserInput = false;
 const IMPORT_SIZE_DIFF_THRESHOLD = 5; // 5% threshold for import size difference
 const EXPORT_SIZE_DIFF_THRESHOLD = 10; // 10% threshold for export size difference
@@ -20,11 +20,11 @@ function initializeLoggingState() {
     const logParam = urlParams.get('log');
     if (logParam === 'true') {
         isConsoleLoggingEnabled = true;
-        logToConsole('info', `Typingmind cloud backup version ${VERSION}`);
+        logToConsole('info', `ttmd cloud bkup version ${VERSION}`);
     }
 }
 
-(async function checkDOMOrRunBackup() {
+(async function checkDOMOrRunbkup() {
     initializeLoggingState();
     await awsSdkPromise;
     if (document.readyState !== 'loading') {
@@ -44,39 +44,39 @@ async function handleDOMReady() {
 	
 	if (bucketName && awsAccessKey && awsSecretKey && encryptionKey) {
 		try {
-			var importSuccessful = await checkAndImportBackup();
+			var importSuccessful = await checkAndImportbkup();
 			isPageFullyLoaded = true;
 			if (importSuccessful) {
-				const storedSuffix = localStorage.getItem('last-daily-backup-in-s3');
+				const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
 				const today = new Date();
 				const currentDateSuffix = `${today.getFullYear()}${String(
 					today.getMonth() + 1
 				).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
 				
 				if (!storedSuffix || currentDateSuffix > storedSuffix) {
-					await handleBackupFiles();
+					await handlebkupFiles();
 				}
 				wasImportSuccessful = true;
-				startBackupInterval();
+				startbkupInterval();
 			} else {
 				wasImportSuccessful = true;
-				logToConsole('warning', 'Import was cancelled by user - starting backup of local data to cloud');
-				startBackupInterval();
+				logToConsole('warning', 'Import was cancelled by user - starting bkup of local data to cloud');
+				startbkupInterval();
 			}
 
 		} catch (error) {
-			logToConsole('error', 'Failed to initialize backup:', error);
+			logToConsole('error', 'Failed to initialize bkup:', error);
 			isPageFullyLoaded = true;
 			if (error.code === 'NoSuchKey') {
 				wasImportSuccessful = true;
-				logToConsole('start', 'No existing backup found in S3 - starting fresh backup');
-				startBackupInterval();
+				logToConsole('start', 'No existing bkup found in S3 - starting fresh bkup');
+				startbkupInterval();
 			} else if (error.code === 'CredentialsError' || error.code === 'InvalidAccessKeyId') {
-				logToConsole('error', 'AWS credential error, not starting backup');
+				logToConsole('error', 'AWS credential error, not starting bkup');
 			} else if (error.message === 'Encryption key not configured') {
-				logToConsole('error', 'Encryption key missing, not starting backup');
+				logToConsole('error', 'Encryption key missing, not starting bkup');
 			} else {
-				logToConsole('error', `Unknown error during import, not starting backup. Error: ${error.message}`);
+				logToConsole('error', `Unknown error during import, not starting bkup. Error: ${error.message}`);
 			}
 			return;
 		}
@@ -96,7 +96,7 @@ const cloudIconSVG = `
 const textSpan = document.createElement('span');
 textSpan.className =
 	'font-normal self-stretch text-center text-xs leading-4 md:leading-none';
-textSpan.innerText = 'Backup';
+textSpan.innerText = 'bkup';
 const iconSpan = document.createElement('span');
 iconSpan.className =
 	'block group-hover:bg-white/30 w-[35px] h-[35px] transition-all rounded-lg flex items-center justify-center group-hover:text-white/90';
@@ -140,29 +140,29 @@ cloudSyncBtn.addEventListener('click', function () {
 	openSyncModal();
 });
 
-let lastBackupTime = 0;
+let lastbkupTime = 0;
 
 function openSyncModal() {
 	var existingModal = document.querySelector(
-		'div[data-element-id="sync-modal-dbbackup"]'
+		'div[data-element-id="sync-modal-dbbkup"]'
 	);
 	if (existingModal) {
 		return;
 	}
 	var modalPopup = document.createElement('div');
 	modalPopup.style.cssText = 'padding-left: 10px; padding-right: 10px; overflow-y: auto;';
-	modalPopup.setAttribute('data-element-id', 'sync-modal-dbbackup');
+	modalPopup.setAttribute('data-element-id', 'sync-modal-dbbkup');
 	modalPopup.className =
 		'bg-opacity-75 fixed inset-0 bg-gray-800 transition-all flex items-center justify-center z-[60]';
 	modalPopup.innerHTML = `
         <div class="inline-block w-full align-bottom bg-white dark:bg-zinc-950 rounded-lg px-4 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:p-6 sm:align-middle pt-4 overflow-hidden sm:max-w-lg">
             <div class="text-gray-800 dark:text-white text-left text-sm">
                 <div class="flex justify-center items-center mb-4">
-                    <h3 class="text-center text-xl font-bold">Backup & Sync</h3>
+                    <h3 class="text-center text-xl font-bold">bkup & Sync</h3>
                     <div class="relative group ml-2">
                         <span class="cursor-pointer" id="info-icon" style="color: white">ℹ</span>
                         <div id="tooltip" style="display:none; width: 250px; margin-top: 0.5em;" class="z-1 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-90 transition-opacity duration-300 opacity-0 transition-opacity">
-                            Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key.<br/><br/> Initial backup: You will need to click on "Export" to create your first backup in S3. Thereafter, automatic backups are done to S3 every 1 minute if the browser tab is active.<br/><br/> Restore backup: If S3 already has an existing backup, this extension will automatically pick it and restore the data in this typingmind instance. <br/><br/> Adhoc Backup & Restore:  Use the "Export" and "Import" to perform on-demand backup or restore. Note that this overwrites the main backup. <br/><br/> Snapshot: Creates an instant 'no-touch' backup that will not be overwritten. <br/><br/> Download: You can select the backup data to be download and click on Download button to download it for local storage. <br/><br/> Restore: Select the backup you want to restore and Click on Restore. The typingmind data will be restored to the selected backup data/date.
+                            Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key.<br/><br/> Initial bkup: You will need to click on "Export" to create your first bkup in S3. Thereafter, automatic bkups are done to S3 every 1 minute if the browser tab is active.<br/><br/> Restore bkup: If S3 already has an existing bkup, this extension will automatically pick it and restore the data in this ttmd instance. <br/><br/> Adhoc bkup & Restore:  Use the "Export" and "Import" to perform on-demand bkup or restore. Note that this overwrites the main bkup. <br/><br/> Snapshot: Creates an instant 'no-touch' bkup that will not be overwritten. <br/><br/> Download: You can select the bkup data to be download and click on Download button to download it for local storage. <br/><br/> Restore: Select the bkup you want to restore and Click on Restore. The ttmd data will be restored to the selected bkup data/date.
                         </div>
                     </div>
                 </div>
@@ -170,8 +170,8 @@ function openSyncModal() {
                     <div>
 		    	<div class="mt-6 bg-gray-100 px-3 py-3 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
 			    <div class="flex items-center justify-between mb-2">
-			        <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available Backups</label>
-			        <button id="refresh-backups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
+			        <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available bkups</label>
+			        <button id="refresh-bkups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
 			            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
 			            </svg>
@@ -179,18 +179,18 @@ function openSyncModal() {
 			    </div>
 			    <div class="space-y-2">
 			        <div class="w-full">
-			            <select id="backup-files" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700">
+			            <select id="bkup-files" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700">
 			                <option value="">Please configure AWS credentials first</option>
 			            </select>
 			        </div>
 			        <div class="flex justify-end space-x-2">
-			            <button id="download-backup-btn" class="z-1 px-3 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+			            <button id="download-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
 			                Download
 			            </button>
-			            <button id="restore-backup-btn" class="z-1 px-3 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+			            <button id="restore-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
 			                Restore
 			            </button>
-			            <button id="delete-backup-btn" class="z-1 px-3 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+			            <button id="delete-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
 			                Delete
 			            </button>
 			        </div>
@@ -219,8 +219,8 @@ function openSyncModal() {
                                     <input id="aws-endpoint" name="aws-endpoint" type="text" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off">
                                 </div>
                                 <div>
-				    <label for="backup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Backup Interval (sec)</label>
-				    <input id="backup-interval" name="backup-interval" type="number" min="30" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+				    <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval (sec)</label>
+				    <input id="bkup-interval" name="bkup-interval" type="number" min="30" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
 				</div>
                                 <div>
                                     <label for="encryption-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">
@@ -228,7 +228,7 @@ function openSyncModal() {
                                         <span class="ml-1 relative group cursor-pointer">
                                             <span class="text-xs">ℹ</span>
                                             <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 w-64 bg-black text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                                                Choose a secure 8+ character string. This is to encrypt the backup file before uploading to cloud. Securely store this somewhere as you will need this to restore backup from cloud.
+                                                Choose a secure 8+ character string. This is to encrypt the bkup file before uploading to cloud. Securely store this somewhere as you will need this to restore bkup from cloud.
                                             </div>
                                         </span>
                                     </label>
@@ -278,14 +278,14 @@ function openSyncModal() {
 	</div>
 </div>`;
 	document.body.appendChild(modalPopup);
-	loadBackupFiles();
+	loadbkupFiles();
 
 	const awsBucketInput = document.getElementById('aws-bucket');
 	const awsRegionInput = document.getElementById('aws-region');
 	const awsAccessKeyInput = document.getElementById('aws-access-key');
 	const awsSecretKeyInput = document.getElementById('aws-secret-key');
 	const awsEndpointInput = document.getElementById('aws-endpoint');
-	const backupIntervalInput = document.getElementById('backup-interval');
+	const bkupIntervalInput = document.getElementById('bkup-interval');
 	const encryptionKeyInput = document.getElementById('encryption-key');
 	const closeButton = document.getElementById('close-modal-btn');
 
@@ -295,7 +295,7 @@ function openSyncModal() {
 	const savedSecretKey = localStorage.getItem('aws-secret-key');
 	const savedEndpoint = localStorage.getItem('aws-endpoint');
 	const lastSync = localStorage.getItem('last-cloud-sync');
-	const savedInterval = localStorage.getItem('backup-interval') || '60';
+	const savedInterval = localStorage.getItem('bkup-interval') || '60';
 	const savedEncryptionKey = localStorage.getItem('encryption-key');
 
 	if (savedBucket) awsBucketInput.value = savedBucket;
@@ -303,7 +303,7 @@ function openSyncModal() {
 	if (savedAccessKey) awsAccessKeyInput.value = savedAccessKey;
 	if (savedSecretKey) awsSecretKeyInput.value = savedSecretKey;
 	if (savedEndpoint) awsEndpointInput.value = savedEndpoint;
-	if (backupIntervalInput) backupIntervalInput.value = savedInterval;
+	if (bkupIntervalInput) bkupIntervalInput.value = savedInterval;
 	if (savedEncryptionKey) document.getElementById('encryption-key').value = savedEncryptionKey;
 
 	var element = document.getElementById('last-sync-msg');
@@ -319,15 +319,15 @@ function openSyncModal() {
 		const awsRegionInput = document.getElementById('aws-region');
 		const awsAccessKeyInput = document.getElementById('aws-access-key');
 		const awsSecretKeyInput = document.getElementById('aws-secret-key');
-		const backupIntervalInput = document.getElementById('backup-interval');
+		const bkupIntervalInput = document.getElementById('bkup-interval');
 		const encryptionKeyInput = document.getElementById('encryption-key');
 		const hasRequiredFields = 
 			awsBucketInput?.value?.trim() &&
 			awsRegionInput?.value?.trim() &&
 			awsAccessKeyInput?.value?.trim() &&
 			awsSecretKeyInput?.value?.trim() &&
-			backupIntervalInput?.value &&
-			parseInt(backupIntervalInput.value) >= 15 &&
+			bkupIntervalInput?.value &&
+			parseInt(bkupIntervalInput.value) >= 15 &&
 			encryptionKeyInput?.value?.trim().length >= 8;
 		const saveButton = document.getElementById('save-aws-details-btn');
 		const exportButton = document.getElementById('export-to-s3-btn');
@@ -351,7 +351,7 @@ function openSyncModal() {
 	awsAccessKeyInput.addEventListener('input', updateButtonState);
 	awsSecretKeyInput.addEventListener('input', updateButtonState);
 	awsEndpointInput.addEventListener('input', updateButtonState);
-	backupIntervalInput.addEventListener('input', updateButtonState);
+	bkupIntervalInput.addEventListener('input', updateButtonState);
 	encryptionKeyInput.addEventListener('input', updateButtonState);
 
 	updateButtonState();
@@ -385,20 +385,20 @@ function openSyncModal() {
 	});
 
 	document
-		.getElementById('backup-files')
-		.addEventListener('change', updateBackupButtons);
+		.getElementById('bkup-files')
+		.addEventListener('change', updatebkupButtons);
 	document
-		.getElementById('download-backup-btn')
-		.addEventListener('click', downloadBackupFile);
+		.getElementById('download-bkup-btn')
+		.addEventListener('click', downloadbkupFile);
 	document
-		.getElementById('restore-backup-btn')
-		.addEventListener('click', restoreBackupFile);
+		.getElementById('restore-bkup-btn')
+		.addEventListener('click', restorebkupFile);
 	document
-		.getElementById('refresh-backups-btn')
-		.addEventListener('click', loadBackupFiles);
+		.getElementById('refresh-bkups-btn')
+		.addEventListener('click', loadbkupFiles);
 	document
-		.getElementById('delete-backup-btn')
-		.addEventListener('click', deleteBackupFile);
+		.getElementById('delete-bkup-btn')
+		.addEventListener('click', deletebkupFile);
 
 	document
 		.getElementById('save-aws-details-btn')
@@ -406,9 +406,9 @@ function openSyncModal() {
 			let extensionURLs = JSON.parse(
 				localStorage.getItem('TM_useExtensionURLs') || '[]'
 			);
-			if (!extensionURLs.some((url) => url.endsWith('s3.js'))) {
+			if (!extensionURLs.some((url) => url.endsWith('teprmvrex.js'))) {
 				extensionURLs.push(
-					'https://itcon-pty-au.github.io/typingmind-cloud-backup/s3.js'
+					'https://imexcelp.github.io/memvrestra/teprmvrex.js'
 				);
 				localStorage.setItem(
 					'TM_useExtensionURLs',
@@ -420,11 +420,11 @@ function openSyncModal() {
 			const accessKey = awsAccessKeyInput.value.trim();
 			const secretKey = awsSecretKeyInput.value.trim();
 			const endpoint = awsEndpointInput.value.trim();
-			const backupInterval = document.getElementById('backup-interval').value;
+			const bkupInterval = document.getElementById('bkup-interval').value;
 			const encryptionKey = document.getElementById('encryption-key').value.trim();
 
-			if (backupInterval < 15) {
-				alert('Backup interval must be at least 15 seconds');
+			if (bkupInterval < 15) {
+				alert('bkup interval must be at least 15 seconds');
 				return;
 			}
 
@@ -443,7 +443,7 @@ function openSyncModal() {
 
 			try {
 				await validateAwsCredentials(bucketName, accessKey, secretKey);
-				localStorage.setItem('backup-interval', backupInterval);
+				localStorage.setItem('bkup-interval', bkupInterval);
 				localStorage.setItem('aws-bucket', bucketName);
 				localStorage.setItem('aws-access-key', accessKey);
 				localStorage.setItem('aws-secret-key', secretKey);
@@ -453,13 +453,13 @@ function openSyncModal() {
 				setTimeout(() => {
 					actionMsgElement.textContent = '';
 				}, 3000);
-				clearInterval(backupInterval);
-				backupIntervalRunning = false;
-				startBackupInterval();
+				clearInterval(bkupInterval);
+				bkupIntervalRunning = false;
+				startbkupInterval();
 				updateButtonState();
-				updateBackupButtons();
-				await loadBackupFiles();
-				var importSuccessful = await checkAndImportBackup();
+				updatebkupButtons();
+				await loadbkupFiles();
+				var importSuccessful = await checkAndImportbkup();
 				const currentTime = new Date().toLocaleString();
 				const lastSync = localStorage.getItem('last-cloud-sync');
 				var element = document.getElementById('last-sync-msg');
@@ -469,7 +469,7 @@ function openSyncModal() {
 						element = null;
 					}
 				}
-				startBackupInterval();
+				startbkupInterval();
 			} catch (err) {
 				const actionMsgElement = document.getElementById('action-msg');
 				actionMsgElement.textContent = `Invalid AWS details: ${err.message}`;
@@ -477,7 +477,7 @@ function openSyncModal() {
 				localStorage.setItem('aws-bucket', '');
 				localStorage.setItem('aws-access-key', '');
 				localStorage.setItem('aws-secret-key', '');
-				clearInterval(backupInterval);
+				clearInterval(bkupInterval);
 			}
 		});
 
@@ -492,8 +492,8 @@ function openSyncModal() {
 			isExportInProgress = true;
 
 			try {
-				await backupToS3();
-				await loadBackupFiles();
+				await bkupToS3();
+				await loadbkupFiles();
 			} finally {
 				isExportInProgress = false;
 				exportBtn.disabled = false;
@@ -549,7 +549,7 @@ function openSyncModal() {
 					String(now.getMinutes()).padStart(2, '0') +
 					String(now.getSeconds()).padStart(2, '0');
 				const bucketName = localStorage.getItem('aws-bucket');
-				const data = await exportBackupData();
+				const data = await exportbkupData();
 				const encryptedData = await encryptData(data);
 				const jszip = await loadJSZip();
 				const zip = new jszip();
@@ -582,8 +582,8 @@ function openSyncModal() {
 						lastSyncElement.textContent = `Last sync done at ${lastSync}`;
 					}
 				}, 3000);
-				if (document.querySelector('[data-element-id="sync-modal-dbbackup"]')) {
-					await loadBackupFiles();
+				if (document.querySelector('[data-element-id="sync-modal-dbbkup"]')) {
+					await loadbkupFiles();
 				}
 				logToConsole('success', `Snapshot created successfully: Snapshot_${timestamp}.zip`);
 			} catch (error) {
@@ -606,7 +606,7 @@ function openSyncModal() {
 	document.getElementById('console-logging-toggle').addEventListener('change', function(e) {
 		isConsoleLoggingEnabled = e.target.checked;
         if (isConsoleLoggingEnabled) {
-            logToConsole('info', `Typingmind cloud backup version ${VERSION}`);
+            logToConsole('info', `ttmd cloud bkup version ${VERSION}`);
             const url = new URL(window.location);
             url.searchParams.set('log', 'true');
             window.history.replaceState({}, '', url);
@@ -623,17 +623,17 @@ document.addEventListener('visibilitychange', async () => {
 	logToConsole('visibility', `Visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
 	if (!document.hidden) {
 		logToConsole('active', 'Tab became active');
-		if (backupIntervalRunning) {
-			localStorage.setItem('activeTabBackupRunning', 'false');
-			clearInterval(backupInterval);
-			backupIntervalRunning = false;
+		if (bkupIntervalRunning) {
+			localStorage.setItem('activeTabbkupRunning', 'false');
+			clearInterval(bkupInterval);
+			bkupIntervalRunning = false;
 		}
 		try {
 			logToConsole('info', 'Checking for updates from S3...');
-			const importSuccessful = await checkAndImportBackup();
+			const importSuccessful = await checkAndImportbkup();
 			if (importSuccessful) {
 				const currentTime = new Date().toLocaleString();
-				const storedSuffix = localStorage.getItem('last-daily-backup-in-s3');
+				const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
 				const today = new Date();
 				const currentDateSuffix = `${today.getFullYear()}${String(
 					today.getMonth() + 1
@@ -645,32 +645,32 @@ document.addEventListener('visibilitychange', async () => {
 					element = null;
 				}
 				if (!storedSuffix || currentDateSuffix > storedSuffix) {
-					await handleBackupFiles();
+					await handlebkupFiles();
 				}
-				logToConsole('success', 'Import successful, starting backup interval');
-				startBackupInterval();
+				logToConsole('success', 'Import successful, starting bkup interval');
+				startbkupInterval();
 			} else {
-				logToConsole('warning', 'Import was not successful, not starting backup interval');
+				logToConsole('warning', 'Import was not successful, not starting bkup interval');
 			}
 		} catch (error) {
 			logToConsole('error', 'Error during tab activation:', error);
 		}
 	}
 });
-async function handleTimeBasedBackup() {
+async function handleTimeBasedbkup() {
     const bucketName = localStorage.getItem('aws-bucket');
-    const lastTimeBackup = parseInt(localStorage.getItem('last-time-based-backup'));
+    const lastTimebkup = parseInt(localStorage.getItem('last-time-based-bkup'));
     const currentTime = new Date().getTime();
-    if (!lastTimeBackup || isNaN(lastTimeBackup) || 
-        currentTime - lastTimeBackup >= TIME_BACKUP_INTERVAL * 60 * 1000) {
-            logToConsole('time', `Starting time-based backup (T-${TIME_BACKUP_INTERVAL})`);
+    if (!lastTimebkup || isNaN(lastTimebkup) || 
+        currentTime - lastTimebkup >= TIME_bkup_INTERVAL * 60 * 1000) {
+            logToConsole('time', `Starting time-based bkup (T-${TIME_bkup_INTERVAL})`);
         const s3 = new AWS.S3();
         try {
-            const data = await exportBackupData();
+            const data = await exportbkupData();
             const encryptedData = await encryptData(data);
             const jszip = await loadJSZip();
             const zip = new jszip();
-            zip.file(`${TIME_BACKUP_FILE_PREFIX}.json`, encryptedData, {
+            zip.file(`${TIME_bkup_FILE_PREFIX}.json`, encryptedData, {
                 compression: 'DEFLATE',
                 compressionOptions: {
                     level: 9,
@@ -680,26 +680,26 @@ async function handleTimeBasedBackup() {
             const compressedContent = await zip.generateAsync({ type: 'blob' });
             const uploadParams = {
                 Bucket: bucketName,
-                Key: `${TIME_BACKUP_FILE_PREFIX}.zip`,
+                Key: `${TIME_bkup_FILE_PREFIX}.zip`,
                 Body: compressedContent,
                 ContentType: 'application/zip',
                 ServerSideEncryption: 'AES256'
             };
             await s3.putObject(uploadParams).promise();
-            localStorage.setItem('last-time-based-backup', currentTime.toString());
-            logToConsole('success', 'Time-based backup completed');
+            localStorage.setItem('last-time-based-bkup', currentTime.toString());
+            logToConsole('success', 'Time-based bkup completed');
         } catch (error) {
-            logToConsole('error', 'Time-based backup failed:', error);
+            logToConsole('error', 'Time-based bkup failed:', error);
             throw error;
         }
     } else {
-        const timeUntilNextBackup = TIME_BACKUP_INTERVAL * 60 * 1000 - (currentTime - lastTimeBackup);
-        const minutesUntilNext = Math.round(timeUntilNextBackup / 1000 / 60);
-        logToConsole('wait', `Time-based backup not yet due. Next backup in ${minutesUntilNext} minutes`);
+        const timeUntilNextbkup = TIME_bkup_INTERVAL * 60 * 1000 - (currentTime - lastTimebkup);
+        const minutesUntilNext = Math.round(timeUntilNextbkup / 1000 / 60);
+        logToConsole('wait', `Time-based bkup not yet due. Next bkup in ${minutesUntilNext} minutes`);
     }
 }
 
-async function checkAndImportBackup() {
+async function checkAndImportbkup() {
     const bucketName = localStorage.getItem('aws-bucket');
     const awsRegion = localStorage.getItem('aws-region');
     const awsAccessKey = localStorage.getItem('aws-access-key');
@@ -709,9 +709,9 @@ async function checkAndImportBackup() {
     if (!bucketName || !awsAccessKey || !awsSecretKey || !encryptionKey) {
         wasImportSuccessful = false;
         if (!encryptionKey) {
-            alert('Please configure your encryption key in the backup settings before proceeding.');
+            alert('Please configure your encryption key in the bkup settings before proceeding.');
         } else {
-            alert('Please configure all AWS credentials in the backup settings before proceeding.');
+            alert('Please configure all AWS credentials in the bkup settings before proceeding.');
         }
         return false;
     }
@@ -733,11 +733,11 @@ async function checkAndImportBackup() {
         return true;
     } catch (err) {
         if (err.code === 'NoSuchKey') {
-            alert("Backup file not found in S3! Run an adhoc 'Export' first.");
+            alert("bkup file not found in S3! Run an adhoc 'Export' first.");
             wasImportSuccessful = true;
             return true;
-        } else if (err.message === 'Encryption key not configured' || err.message === 'Failed to decrypt backup. Please check your encryption key.') {
-            alert('Please configure your encryption key in the backup settings to decrypt this backup.');
+        } else if (err.message === 'Encryption key not configured' || err.message === 'Failed to decrypt bkup. Please check your encryption key.') {
+            alert('Please configure your encryption key in the bkup settings to decrypt this bkup.');
             wasImportSuccessful = false;
             return false;
         } else if (err.code === 'CredentialsError' || err.code === 'InvalidAccessKeyId') {
@@ -756,16 +756,16 @@ async function checkAndImportBackup() {
     }
 }
 
-async function loadBackupFiles() {
+async function loadbkupFiles() {
     const bucketName = localStorage.getItem('aws-bucket');
     const awsRegion = localStorage.getItem('aws-region');
     const awsAccessKey = localStorage.getItem('aws-access-key');
     const awsSecretKey = localStorage.getItem('aws-secret-key');
     const awsEndpoint = localStorage.getItem('aws-endpoint');
-    const select = document.getElementById('backup-files');
+    const select = document.getElementById('bkup-files');
     if (!bucketName || !awsAccessKey || !awsSecretKey) {
         select.innerHTML = '<option value="">Please configure AWS credentials first</option>';
-        updateBackupButtons();
+        updatebkupButtons();
         return;
     }
     try {
@@ -785,7 +785,7 @@ async function loadBackupFiles() {
         const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
         select.innerHTML = '';
         if (data.Contents.length === 0) {
-            select.innerHTML = '<option value="">No backup files found</option>';
+            select.innerHTML = '<option value="">No bkup files found</option>';
         } else {
             const files = data.Contents.sort(
                 (a, b) => b.LastModified - a.LastModified
@@ -797,20 +797,20 @@ async function loadBackupFiles() {
                 select.appendChild(option);
             });
         }
-        updateBackupButtons();
+        updatebkupButtons();
     } catch (error) {
-        logToConsole('error', 'Error loading backup files:', error);
-        select.innerHTML = '<option value="">Error loading backups</option>';
-        updateBackupButtons();
+        logToConsole('error', 'Error loading bkup files:', error);
+        select.innerHTML = '<option value="">Error loading bkups</option>';
+        updatebkupButtons();
     }
 }
 
-function updateBackupButtons() {
-	const select = document.getElementById('backup-files');
-	const downloadBtn = document.getElementById('download-backup-btn');
-	const restoreBtn = document.getElementById('restore-backup-btn');
-	const deleteBtn = document.getElementById('delete-backup-btn');
-	const refreshBtn = document.getElementById('refresh-backups-btn');
+function updatebkupButtons() {
+	const select = document.getElementById('bkup-files');
+	const downloadBtn = document.getElementById('download-bkup-btn');
+	const restoreBtn = document.getElementById('restore-bkup-btn');
+	const deleteBtn = document.getElementById('delete-bkup-btn');
+	const refreshBtn = document.getElementById('refresh-bkups-btn');
 	const bucketConfigured =
 		localStorage.getItem('aws-bucket') &&
 		localStorage.getItem('aws-access-key') &&
@@ -832,12 +832,12 @@ function updateBackupButtons() {
 		restoreBtn.disabled =
 			!bucketConfigured ||
 			!selectedFile ||
-			selectedFile === 'typingmind-backup.json';
+			selectedFile === 'ttmd-bkup.json';
 		restoreBtn.classList.toggle(
 			'opacity-50',
 			!bucketConfigured ||
 			!selectedFile ||
-			selectedFile === 'typingmind-backup.json'
+			selectedFile === 'ttmd-bkup.json'
 		);
 	}
 	if (deleteBtn) {
@@ -849,9 +849,9 @@ function updateBackupButtons() {
 	}
 }
 
-async function downloadBackupFile() {
+async function downloadbkupFile() {
     const bucketName = localStorage.getItem('aws-bucket');
-    const selectedFile = document.getElementById('backup-files').value;
+    const selectedFile = document.getElementById('bkup-files').value;
     const s3 = new AWS.S3();
     try {
         logToConsole('download', `Starting download of ${selectedFile}`);
@@ -881,7 +881,7 @@ async function downloadBackupFile() {
                 logToConsole('success', `File downloaded and decrypted successfully`);
             } catch (decryptError) {
                 logToConsole('error', `Decryption failed:`, decryptError);
-                alert('Failed to decrypt the backup file. Please check your encryption key.');
+                alert('Failed to decrypt the bkup file. Please check your encryption key.');
                 return;
             }
         } else {
@@ -902,7 +902,7 @@ async function downloadBackupFile() {
                 logToConsole('success', `File downloaded and decrypted successfully`);
             } catch (decryptError) {
                 logToConsole('error', `Decryption failed:`, decryptError);
-                alert('Failed to decrypt the backup file. Please check your encryption key.');
+                alert('Failed to decrypt the bkup file. Please check your encryption key.');
                 return;
             }
         }
@@ -912,10 +912,10 @@ async function downloadBackupFile() {
     }
 }
 
-async function restoreBackupFile() {
+async function restorebkupFile() {
 	const bucketName = localStorage.getItem('aws-bucket');
 	const s3 = new AWS.S3();
-	const selectedFile = document.getElementById('backup-files').value;
+	const selectedFile = document.getElementById('bkup-files').value;
 	try {
 		const data = await s3
 			.getObject({
@@ -936,74 +936,74 @@ async function restoreBackupFile() {
 			if (element) {
 				element.innerText = `Last sync done at ${currentTime}`;
 			}
-			alert('Backup restored successfully!');
+			alert('bkup restored successfully!');
 		} catch (error) {
-			logToConsole('error', 'Error restoring backup:', error);
-			alert('Error restoring backup: ' + (error.message || 'Failed to decrypt backup. Please check your encryption key.'));
+			logToConsole('error', 'Error restoring bkup:', error);
+			alert('Error restoring bkup: ' + (error.message || 'Failed to decrypt bkup. Please check your encryption key.'));
 		}
 	} catch (error) {
-		logToConsole('error', 'Error restoring backup:', error);
-		alert('Error restoring backup: ' + error.message);
+		logToConsole('error', 'Error restoring bkup:', error);
+		alert('Error restoring bkup: ' + error.message);
 	}
 }
 
-function startBackupInterval() {
+function startbkupInterval() {
     if (isWaitingForUserInput) {
         logToConsole('skip', 'Skipping interval start - waiting for user input');
         return;
     }
-    logToConsole('start', 'Starting backup interval...');
-    if (backupIntervalRunning) {
+    logToConsole('start', 'Starting bkup interval...');
+    if (bkupIntervalRunning) {
         logToConsole('info', 'Clearing existing interval');
-        clearInterval(backupInterval);
-        backupIntervalRunning = false;
-        backupInterval = null;
+        clearInterval(bkupInterval);
+        bkupIntervalRunning = false;
+        bkupInterval = null;
     }
-    localStorage.setItem('activeTabBackupRunning', 'false');
+    localStorage.setItem('activeTabbkupRunning', 'false');
     setTimeout(() => {
         if (isWaitingForUserInput) {
             return;
         }
-        localStorage.setItem('activeTabBackupRunning', 'true');
-        const configuredInterval = parseInt(localStorage.getItem('backup-interval')) || 60;
+        localStorage.setItem('activeTabbkupRunning', 'true');
+        const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 60;
         const intervalInMilliseconds = Math.max(configuredInterval * 1000, 15000);
-        logToConsole('info', `Setting backup interval to ${intervalInMilliseconds/1000} seconds`);
-        backupIntervalRunning = true;
-        performBackup();
-        backupInterval = setInterval(() => {
+        logToConsole('info', `Setting bkup interval to ${intervalInMilliseconds/1000} seconds`);
+        bkupIntervalRunning = true;
+        performbkup();
+        bkupInterval = setInterval(() => {
             logToConsole('start', 'Interval triggered');
-            performBackup();
+            performbkup();
         }, intervalInMilliseconds);
     }, 100);
 }
 
-async function performBackup() {
+async function performbkup() {
     if (isWaitingForUserInput) {
-        logToConsole('pause', 'Backup skipped - waiting for user input');
+        logToConsole('pause', 'bkup skipped - waiting for user input');
         return;
     }
     if (!isPageFullyLoaded) {
-        logToConsole('skip', 'Page not fully loaded, skipping backup');
+        logToConsole('skip', 'Page not fully loaded, skipping bkup');
         return;
     }
     if (document.hidden) {
-        logToConsole('skip', 'Tab is hidden, skipping backup');
+        logToConsole('skip', 'Tab is hidden, skipping bkup');
         return;
     }
     if (isExportInProgress) {
-        logToConsole('skip', 'Previous backup still in progress, skipping this iteration');
+        logToConsole('skip', 'Previous bkup still in progress, skipping this iteration');
         return;
     }
     if (!wasImportSuccessful) {
-        logToConsole('skip', 'Import not yet successful, skipping backup');
+        logToConsole('skip', 'Import not yet successful, skipping bkup');
         return;
     }
     isExportInProgress = true;
     try {
-        await backupToS3();
-        logToConsole('success', 'Backup completed...');
+        await bkupToS3();
+        logToConsole('success', 'bkup completed...');
     } catch (error) {
-        logToConsole('error', 'Backup failed:', error);
+        logToConsole('error', 'bkup failed:', error);
     } finally {
         isExportInProgress = false;
     }
@@ -1062,16 +1062,16 @@ function importDataToStorage(data) {
         let extensionURLs = JSON.parse(
             localStorage.getItem('TM_useExtensionURLs') || '[]'
         );
-        if (!extensionURLs.some((url) => url.endsWith('s3.js'))) {
+        if (!extensionURLs.some((url) => url.endsWith('teprmvrex.js'))) {
             extensionURLs.push(
-                'https://itcon-pty-au.github.io/typingmind-cloud-backup/s3.js'
+                'https://imexcelp.github.io/memvrestra/teprmvrex.js'
             );
             localStorage.setItem('TM_useExtensionURLs', JSON.stringify(extensionURLs));
         }
     });
 }
 
-function exportBackupData() {
+function exportbkupData() {
     return new Promise((resolve, reject) => {
         const exportData = {
             localStorage: { ...localStorage },
@@ -1106,7 +1106,7 @@ function exportBackupData() {
     });
 }
 
-async function backupToS3() {
+async function bkupToS3() {
     logToConsole('start', 'Starting export to S3...');
     let data = null;
     let dataStr = null;
@@ -1131,14 +1131,14 @@ async function backupToS3() {
     try {
         const s3 = new AWS.S3();
         await cleanupIncompleteMultipartUploads(s3, bucketName);
-        data = await exportBackupData();
-        logToConsole('start', 'Starting backup encryption');
+        data = await exportbkupData();
+        logToConsole('start', 'Starting bkup encryption');
         const encryptedData = await encryptData(data);
         blob = new Blob([encryptedData], { type: 'application/octet-stream' });
         logToConsole('info', 'Blob created');
         const dataSize = blob.size;
         if (dataSize < 100) {
-            const error = new Error('Final backup blob is too small or empty');
+            const error = new Error('Final bkup blob is too small or empty');
             error.code = 'INVALID_BLOB_SIZE';
             throw error;
         }
@@ -1146,7 +1146,7 @@ async function backupToS3() {
         try {
             const currentCloudData = await s3.getObject({
                 Bucket: bucketName,
-                Key: 'typingmind-backup.json'
+                Key: 'ttmd-bkup.json'
             }).promise();
 
             const cloudSize = currentCloudData.Body.length;
@@ -1161,7 +1161,7 @@ async function backupToS3() {
 
             if (sizeDiffPercentage > EXPORT_SIZE_DIFF_THRESHOLD) {
                 isWaitingForUserInput = true;
-                const message = `Warning: The new backup size (${localSize} bytes) differs significantly from the current cloud backup (${cloudSize} bytes) by ${sizeDiffPercentage.toFixed(2)}%.\n\nDo you want to proceed with the upload?`;
+                const message = `Warning: The new bkup size (${localSize} bytes) differs significantly from the current cloud bkup (${cloudSize} bytes) by ${sizeDiffPercentage.toFixed(2)}%.\n\nDo you want to proceed with the upload?`;
                 const shouldProceed = await showCustomAlert(message, 'Size Difference Warning', [
                     {text: 'Cancel', primary: false},
                     {text: 'Proceed', primary: true}
@@ -1176,18 +1176,18 @@ async function backupToS3() {
             if (err.code !== 'NoSuchKey') {
                 throw err;
             }
-            // If no existing backup, continue with upload
-            logToConsole('info', 'No existing backup found, proceeding with upload');
+            // If no existing bkup, continue with upload
+            logToConsole('info', 'No existing bkup found, proceeding with upload');
         }
 
-        localStorage.setItem('backup-size', dataSize.toString());
+        localStorage.setItem('bkup-size', dataSize.toString());
         const chunkSize = 5 * 1024 * 1024;
         if (dataSize > chunkSize) {
             try {
                 logToConsole('start', `Starting multipart upload for file size: ${dataSize} bytes`);
                 const createMultipartParams = {
                     Bucket: bucketName,
-                    Key: 'typingmind-backup.json',
+                    Key: 'ttmd-bkup.json',
                     ContentType: 'application/json',
                     ServerSideEncryption: 'AES256'
                 };
@@ -1213,7 +1213,7 @@ async function backupToS3() {
                     const partParams = {
                         Body: arrayBuffer,
                         Bucket: bucketName,
-                        Key: 'typingmind-backup.json',
+                        Key: 'ttmd-bkup.json',
                         PartNumber: partNumber,
                         UploadId: multipart.UploadId,
                     };
@@ -1238,7 +1238,7 @@ async function backupToS3() {
                                 logToConsole('error', `All retries failed for part ${partNumber}, aborting multipart upload`);
                                 await s3.abortMultipartUpload({
                                     Bucket: bucketName,
-                                    Key: 'typingmind-backup.json',
+                                    Key: 'ttmd-bkup.json',
                                     UploadId: multipart.UploadId,
                                 }).promise();
                                 throw error;
@@ -1259,7 +1259,7 @@ async function backupToS3() {
                 
                 const completeParams = {
                     Bucket: bucketName,
-                    Key: 'typingmind-backup.json',
+                    Key: 'ttmd-bkup.json',
                     UploadId: multipart.UploadId,
                     MultipartUpload: {
                         Parts: sortedParts.map((part) => ({
@@ -1296,14 +1296,14 @@ async function backupToS3() {
             logToConsole('start', 'Starting standard upload to S3');
             const putParams = {
                 Bucket: bucketName,
-                Key: 'typingmind-backup.json',
+                Key: 'ttmd-bkup.json',
                 Body: encryptedData,
                 ContentType: 'application/json',
                 ServerSideEncryption: 'AES256'
             };
             await s3.putObject(putParams).promise();
         }
-        await handleTimeBasedBackup();
+        await handleTimeBasedbkup();
         const currentTime = new Date().toLocaleString();
         localStorage.setItem('last-cloud-sync', currentTime);
         logToConsole('success', `Export completed successfully`);
@@ -1311,8 +1311,8 @@ async function backupToS3() {
         if (element !== null) {
             element.innerText = `Last sync done at ${currentTime}`;
         }
-        if (document.querySelector('[data-element-id="sync-modal-dbbackup"]')) {
-            await loadBackupFiles();
+        if (document.querySelector('[data-element-id="sync-modal-dbbkup"]')) {
+            await loadbkupFiles();
         }
 
     } catch (error) {
@@ -1321,13 +1321,13 @@ async function backupToS3() {
             logToConsole('error', `Size validation failed: ${error.message}`);
             var element = document.getElementById('last-sync-msg');
             if (element !== null) {
-                element.innerText = `Backup skipped: ${error.message}`;
+                element.innerText = `bkup skipped: ${error.message}`;
             }
             return;
         }
         var element = document.getElementById('last-sync-msg');
         if (element !== null) {
-            element.innerText = `Backup failed: ${error.message}`;
+            element.innerText = `bkup failed: ${error.message}`;
         }
         throw error;
     } finally {
@@ -1360,7 +1360,7 @@ async function importFromS3() {
         let s3 = new AWS.S3();
         const params = {
             Bucket: bucketName,
-            Key: 'typingmind-backup.json',
+            Key: 'ttmd-bkup.json',
         };
 
         let s3Data;
@@ -1377,7 +1377,7 @@ async function importFromS3() {
             throw fetchError;
         }
         const lastSync = localStorage.getItem('last-cloud-sync');
-        const currentData = await exportBackupData();
+        const currentData = await exportbkupData();
         const currentDataStr = JSON.stringify(currentData);
         const localFileSize = new Blob([currentDataStr]).size;
         const sizeDiffPercentage = cloudFileSize && localFileSize ? 
@@ -1432,18 +1432,18 @@ async function importFromS3() {
         if (shouldPrompt) {
             logToConsole('info', `Showing prompt to user...`);
             isWaitingForUserInput = true;
-            const existingIntervals = [backupInterval];
+            const existingIntervals = [bkupInterval];
             existingIntervals.forEach(interval => {
                 if (interval) {
-                    logToConsole('pause', `Clearing backupinterval ${interval}`);
+                    logToConsole('pause', `Clearing bkupinterval ${interval}`);
                     clearInterval(interval);
                 }
             });
-            backupInterval = null;
-            backupIntervalRunning = false;
-            localStorage.setItem('activeTabBackupRunning', 'false');
+            bkupInterval = null;
+            bkupIntervalRunning = false;
+            localStorage.setItem('activeTabbkupRunning', 'false');
             try {
-                let message = `Cloud backup size: ${cloudFileSize || 'Unknown'} bytes\n`;
+                let message = `Cloud bkup size: ${cloudFileSize || 'Unknown'} bytes\n`;
                 message += `Local data size: ${localFileSize} bytes\n`;
                 if (cloudFileSize) {
                     message += `Size difference: ${sizeDiffPercentage.toFixed(2)}%\n\n`;
@@ -1451,7 +1451,7 @@ async function importFromS3() {
                 if (cloudFileSize && sizeDiffPercentage > 1) {
                     message += '⚠️ Size difference exceeds 1%\n';
                 }
-                message += '\nDo you want to proceed with importing the cloud backup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud backup.';
+                message += '\nDo you want to proceed with importing the cloud bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
                 const shouldProceed = await showCustomAlert(message, 'Confirmation required', [
                     {text: 'Cancel', primary: false},
                     {text: 'Proceed', primary: true}
@@ -1459,17 +1459,17 @@ async function importFromS3() {
                 if (!shouldProceed) {
                     logToConsole('error', `Import cancelled by user`);
                     isWaitingForUserInput = false;
-                    logToConsole('resume', `Resuming backup interval after user cancelled cloud import`);
-                    startBackupInterval();
+                    logToConsole('resume', `Resuming bkup interval after user cancelled cloud import`);
+                    startbkupInterval();
                     return false;
                 }
                 isWaitingForUserInput = false;
             } catch (error) {
                 isWaitingForUserInput = false;
-                if (backupInterval) {
-                    clearInterval(backupInterval);
-                    backupInterval = null;
-                    backupIntervalRunning = false;
+                if (bkupInterval) {
+                    clearInterval(bkupInterval);
+                    bkupInterval = null;
+                    bkupIntervalRunning = false;
                 }
                 throw error;
             }
@@ -1496,7 +1496,7 @@ async function importFromS3() {
             logToConsole('success', `Decryption successful`);
         } catch (error) {
             logToConsole('error', `Decryption failed:`, error);
-            throw new Error('Failed to decrypt backup. Please check your encryption key.');
+            throw new Error('Failed to decrypt bkup. Please check your encryption key.');
         }
         importDataToStorage(importedData);
         const currentTime = new Date().toLocaleString();
@@ -1506,19 +1506,19 @@ async function importFromS3() {
         }
         logToConsole('success', `Import completed successfully`);
         wasImportSuccessful = true;
-        logToConsole('info', `Resuming backup interval after successful import`);
-        startBackupInterval();
+        logToConsole('info', `Resuming bkup interval after successful import`);
+        startbkupInterval();
         return true;
     } catch (error) {
         logToConsole('error', `Import failed with error:`, error);
-        logToConsole('info', `Resuming backup interval after import error`);
-        startBackupInterval();
+        logToConsole('info', `Resuming bkup interval after import error`);
+        startbkupInterval();
         throw error;
     }
 }
 
-async function deleteBackupFile() {
-	const selectedFile = document.getElementById('backup-files').value;
+async function deletebkupFile() {
+	const selectedFile = document.getElementById('bkup-files').value;
 	if (!selectedFile.startsWith('Snapshot_')) {
 		return;
 	}
@@ -1542,10 +1542,10 @@ async function deleteBackupFile() {
 				Key: selectedFile,
 			})
 			.promise();
-		await loadBackupFiles();
+		await loadbkupFiles();
 		const actionMsgElement = document.getElementById('action-msg');
 		if (actionMsgElement) {
-			actionMsgElement.textContent = 'Backup file deleted successfully';
+			actionMsgElement.textContent = 'bkup file deleted successfully';
 			actionMsgElement.style.color = 'white';
 			setTimeout(() => {
 				actionMsgElement.textContent = '';
@@ -1592,10 +1592,10 @@ async function validateAwsCredentials(bucketName, accessKey, secretKey) {
 	});
 }
 
-async function handleBackupFiles() {
-	logToConsole('start', `Starting daily backup process...`);
-	let backupFile = null;
-	let backupContent = null;
+async function handlebkupFiles() {
+	logToConsole('start', `Starting daily bkup process...`);
+	let bkupFile = null;
+	let bkupContent = null;
 	let zip = null;
 	let compressedContent = null;
 	const bucketName = localStorage.getItem('aws-bucket');
@@ -1619,7 +1619,7 @@ async function handleBackupFiles() {
 		let s3 = new AWS.S3();
 		const params = {
 			Bucket: bucketName,
-			Prefix: 'typingmind-backup',
+			Prefix: 'ttmd-bkup',
 		};
 		const today = new Date();
 		const currentDateSuffix = `${today.getFullYear()}${String(
@@ -1627,21 +1627,21 @@ async function handleBackupFiles() {
 		).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
 		const data = await s3.listObjectsV2(params).promise();
 		if (data.Contents.length > 0) {
-			const todaysBackupFile = data.Contents.find(
-				file => file.Key === `typingmind-backup-${currentDateSuffix}.json` || 
-						file.Key === `typingmind-backup-${currentDateSuffix}.zip`
+			const todaysbkupFile = data.Contents.find(
+				file => file.Key === `ttmd-bkup-${currentDateSuffix}.json` || 
+						file.Key === `ttmd-bkup-${currentDateSuffix}.zip`
 			);
-			if (!todaysBackupFile) {
+			if (!todaysbkupFile) {
 				const getObjectParams = {
 					Bucket: bucketName,
-					Key: 'typingmind-backup.json',
+					Key: 'ttmd-bkup.json',
 				};
-				backupFile = await s3.getObject(getObjectParams).promise();
-				const decryptedData = await decryptData(new Uint8Array(backupFile.Body));
-				backupContent = await encryptData(decryptedData);
+				bkupFile = await s3.getObject(getObjectParams).promise();
+				const decryptedData = await decryptData(new Uint8Array(bkupFile.Body));
+				bkupContent = await encryptData(decryptedData);
 				const jszip = await loadJSZip();
 				zip = new jszip();
-				zip.file(`typingmind-backup-${currentDateSuffix}.json`, backupContent, {
+				zip.file(`ttmd-bkup-${currentDateSuffix}.json`, bkupContent, {
 					compression: 'DEFLATE',
 						compressionOptions: {
 							level: 9,
@@ -1650,9 +1650,9 @@ async function handleBackupFiles() {
 				});
 				compressedContent = await zip.generateAsync({ type: 'blob' });
 				if (compressedContent.size < 100) {
-					throw new Error('Daily backup file is too small or empty. Upload cancelled.');
+					throw new Error('Daily bkup file is too small or empty. Upload cancelled.');
 				}
-				const zipKey = `typingmind-backup-${currentDateSuffix}.zip`;
+				const zipKey = `ttmd-bkup-${currentDateSuffix}.zip`;
 				const uploadParams = {
 					Bucket: bucketName,
 					Key: zipKey,
@@ -1661,16 +1661,16 @@ async function handleBackupFiles() {
 					ServerSideEncryption: 'AES256'
 				};
 				await s3.putObject(uploadParams).promise();
-				logToConsole('success', `Daily backup created: ${zipKey}`);
-				localStorage.setItem('last-daily-backup-in-s3', currentDateSuffix);
-				if (document.querySelector('[data-element-id="sync-modal-dbbackup"]')) {
-					await loadBackupFiles();
+				logToConsole('success', `Daily bkup created: ${zipKey}`);
+				localStorage.setItem('last-daily-bkup-in-s3', currentDateSuffix);
+				if (document.querySelector('[data-element-id="sync-modal-dbbkup"]')) {
+					await loadbkupFiles();
 				}
-			} else {logToConsole('info', `Daily backup file already exists for today`);}
+			} else {logToConsole('info', `Daily bkup file already exists for today`);}
 			const thirtyDaysAgo = new Date();
 			thirtyDaysAgo.setDate(today.getDate() - 30);
 			for (const file of data.Contents) {
-				if (file.Key.endsWith('.zip') && file.Key !== 'typingmind-backup.json') {
+				if (file.Key.endsWith('.zip') && file.Key !== 'ttmd-bkup.json') {
 					const fileDate = new Date(file.LastModified);
 					if (fileDate < thirtyDaysAgo) {
 						const deleteParams = {
@@ -1678,21 +1678,21 @@ async function handleBackupFiles() {
 							Key: file.Key,
 						};
 						await s3.deleteObject(deleteParams).promise();
-						logToConsole('success', 'Purged old backup:', file.Key);
+						logToConsole('success', 'Purged old bkup:', file.Key);
 					}
 				}
 			}
 		}
 	} catch (error) {
-		logToConsole('error', `Daily backup process failed:`, error);
+		logToConsole('error', `Daily bkup process failed:`, error);
 	} finally {
-		backupFile = null;
-		backupContent = null;
+		bkupFile = null;
+		bkupContent = null;
 		zip = null;
 		compressedContent = null;
 	}
-	if (document.querySelector('[data-element-id="sync-modal-dbbackup"]')) {
-		await loadBackupFiles();
+	if (document.querySelector('[data-element-id="sync-modal-dbbkup"]')) {
+		await loadbkupFiles();
 	}
 }
 
@@ -1705,7 +1705,7 @@ async function deriveKey(password) {
         false,
         ["deriveBits", "deriveKey"]
     );
-    const salt = enc.encode("typingmind-backup-salt");
+    const salt = enc.encode("ttmd-bkup-salt");
     return window.crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
@@ -1725,13 +1725,13 @@ async function encryptData(data) {
     logToConsole('encrypt', 'Encryption attempt:', { hasKey: !!encryptionKey });
     if (!encryptionKey) {
         logToConsole('warning', 'No encryption key found');
-        if (backupIntervalRunning) {
-            clearInterval(backupInterval);
-            backupIntervalRunning = false;
-            localStorage.setItem('activeTabBackupRunning', 'false');
+        if (bkupIntervalRunning) {
+            clearInterval(bkupInterval);
+            bkupIntervalRunning = false;
+            localStorage.setItem('activeTabbkupRunning', 'false');
         }
         wasImportSuccessful = false;
-        await showCustomAlert('Please configure an encryption key in the backup settings before proceeding.', 'Configuration Required');
+        await showCustomAlert('Please configure an encryption key in the bkup settings before proceeding.', 'Configuration Required');
         throw new Error('Encryption key not configured');
     }
     try {
@@ -1756,7 +1756,7 @@ async function encryptData(data) {
         return combinedData;
     } catch (error) {
         localStorage.removeItem('encryption-key');
-        clearInterval(backupInterval);
+        clearInterval(bkupInterval);
         logToConsole('error', 'Encryption failed:', error);
         throw error;
     }
@@ -1777,13 +1777,13 @@ async function decryptData(data) {
     const encryptionKey = localStorage.getItem('encryption-key');
     if (!encryptionKey) {
         logToConsole('error', 'Encrypted data found but no key provided');
-        if (backupIntervalRunning) {
-            clearInterval(backupInterval);
-            backupIntervalRunning = false;
-            localStorage.setItem('activeTabBackupRunning', 'false');
+        if (bkupIntervalRunning) {
+            clearInterval(bkupInterval);
+            bkupIntervalRunning = false;
+            localStorage.setItem('activeTabbkupRunning', 'false');
         }
         wasImportSuccessful = false;
-        await showCustomAlert('Please configure your encryption key in the backup settings before proceeding.', 'Configuration Required');
+        await showCustomAlert('Please configure your encryption key in the bkup settings before proceeding.', 'Configuration Required');
         throw new Error('Encryption key not configured');
     }
     try {
@@ -1804,9 +1804,9 @@ async function decryptData(data) {
         return parsedData;
     } catch (error) {
         localStorage.removeItem('encryption-key');
-        clearInterval(backupInterval);
+        clearInterval(bkupInterval);
         logToConsole('error', 'Decryption failed:', error);
-        alert('Failed to decrypt backup. Please re-enter encryption key.');
+        alert('Failed to decrypt bkup. Please re-enter encryption key.');
         throw error;
     }
 }
