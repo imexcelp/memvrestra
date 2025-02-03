@@ -12,8 +12,19 @@ const awsSdkPromise = loadAwsSdk();
 let isPageFullyLoaded = false;
 let bkupInterval = null;
 let isWaitingForUserInput = false;
-const IMPORT_SIZE_DIFF_THRESHOLD = 5; // 5% threshold for import size difference
-const EXPORT_SIZE_DIFF_THRESHOLD = 10; // 10% threshold for export size difference
+
+const hintCssLink = document.createElement('link');
+hintCssLink.rel = 'stylesheet';
+hintCssLink.href = 'https://cdn.jsdelivr.net/npm/hint.css/hint.min.css';
+document.head.appendChild(hintCssLink);
+
+function getImportThreshold() {
+    return parseFloat(localStorage.getItem('import-size-threshold')) || 1;
+}
+
+function getExportThreshold() {
+    return parseFloat(localStorage.getItem('export-size-threshold')) || 10;
+}
 
 function initializeLoggingState() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -153,89 +164,110 @@ function openSyncModal() {
 	modalPopup.style.cssText = 'padding-left: 10px; padding-right: 10px; overflow-y: auto;';
 	modalPopup.setAttribute('data-element-id', 'sync-modal-dbbkup');
 	modalPopup.className =
-		'bg-opacity-75 fixed inset-0 bg-gray-800 transition-all flex items-center justify-center z-[60]';
+		'bg-opacity-75 fixed inset-0 bg-gray-800 transition-all flex items-start justify-center z-[60] p-4 overflow-y-auto';
 	modalPopup.innerHTML = `
-        <div class="inline-block w-full align-bottom bg-white dark:bg-zinc-950 rounded-lg px-4 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:p-6 sm:align-middle pt-4 overflow-hidden sm:max-w-lg">
+        <div class="inline-block w-full align-bottom bg-white dark:bg-zinc-950 rounded-lg px-4 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:p-6 sm:align-middle pt-4 overflow-hidden sm:max-w-lg mt-4">
             <div class="text-gray-800 dark:text-white text-left text-sm">
-                <div class="flex justify-center items-center mb-4">
+                <div class="flex justify-center items-center mb-3">
                     <h3 class="text-center text-xl font-bold">bkup & Sync</h3>
-                    <div class="relative group ml-2">
-                        <span class="cursor-pointer" id="info-icon" style="color: white">ℹ</span>
-                        <div id="tooltip" style="display:none; width: 250px; margin-top: 0.5em;" class="z-1 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-90 transition-opacity duration-300 opacity-0 transition-opacity">
-                            Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key.<br/><br/> Initial bkup: You will need to click on "Export" to create your first bkup in S3. Thereafter, automatic bkups are done to S3 every 1 minute if the browser tab is active.<br/><br/> Restore bkup: If S3 already has an existing bkup, this extension will automatically pick it and restore the data in this ttmd instance. <br/><br/> Adhoc bkup & Restore:  Use the "Export" and "Import" to perform on-demand bkup or restore. Note that this overwrites the main bkup. <br/><br/> Snapshot: Creates an instant 'no-touch' bkup that will not be overwritten. <br/><br/> Download: You can select the bkup data to be download and click on Download button to download it for local storage. <br/><br/> Restore: Select the bkup you want to restore and Click on Restore. The ttmd data will be restored to the selected bkup data/date.
-                        </div>
-                    </div>
+                    <button class="ml-2 text-blue-600 text-lg hint--bottom-left hint--rounded hint--large" 
+                        aria-label="Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key and Encryption key.&#10;&#10;Initial bkup: You will need to click on Export to create your first bkup in S3. Thereafter, automatic bkups are done to S3 as per bkup Interval if the browser tab is active.&#10;&#10;Restore bkup: If S3 already has an existing bkup, this extension will automatically pick it and restore the local data.&#10;&#10;Adhoc bkup & Restore: Use the Export and Import to perform on-demand bkup or restore. Note that this overwrites the main bkup/local data.&#10;&#10;Snapshot: Creates an instant no-touch bkup that will not be overwritten.&#10;&#10;Download: You can select the bkup data to be download and click on Download button to download it for local storage.&#10;&#10;Restore: Select the bkup you want to restore and Click on Restore. The ttmd data will be restored to the selected bkup data/date.">ⓘ</button>
                 </div>
-                <div class="space-y-4">
+                <div class="space-y-3">
                     <div>
-		    	<div class="mt-6 bg-gray-100 px-3 py-3 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
-			    <div class="flex items-center justify-between mb-2">
-			        <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available bkups</label>
-			        <button id="refresh-bkups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
-			            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-			            </svg>
-			        </button>
-			    </div>
-			    <div class="space-y-2">
-			        <div class="w-full">
-			            <select id="bkup-files" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700">
-			                <option value="">Please configure AWS credentials first</option>
-			            </select>
-			        </div>
-			        <div class="flex justify-end space-x-2">
-			            <button id="download-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-			                Download
-			            </button>
-			            <button id="restore-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-			                Restore
-			            </button>
-			            <button id="delete-bkup-btn" class="z-1 px-3 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-			                Delete
-			            </button>
-			        </div>
-			    </div>
-			</div>
-                        <div class="my-4 bg-gray-100 px-3 py-3 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
-                            <div class="space-y-4">
-                                <div>
-                                    <label for="aws-bucket" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Bucket Name</label>
-                                    <input id="aws-bucket" name="aws-bucket" type="text" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                        <div class="mt-4 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available bkups</label>
+                                <button id="refresh-bkups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="w-full">
+                                    <select id="bkup-files" class="w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700">
+                                        <option value="">Please configure AWS credentials first</option>
+                                    </select>
+                                </div>
+                                <div class="flex justify-end space-x-2">
+                                    <button id="download-bkup-btn" class="z-1 px-2 py-1.5 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                                        Download
+                                    </button>
+                                    <button id="restore-bkup-btn" class="z-1 px-2 py-1.5 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                                        Restore
+                                    </button>
+                                    <button id="delete-bkup-btn" class="z-1 px-2 py-1.5 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="my-3 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
+                            <div class="space-y-2">
+                                <div class="flex space-x-4">
+                                    <div class="w-2/3">
+                                        <label for="aws-bucket" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Bucket Name <span class="text-red-500">*</span></label>
+                                        <input id="aws-bucket" name="aws-bucket" type="text" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    </div>
+                                    <div class="w-1/3">
+                                        <label for="aws-region" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Region <span class="text-red-500">*</span></label>
+                                        <input id="aws-region" name="aws-region" type="text" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label for="aws-region" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Region</label>
-                                    <input id="aws-region" name="aws-region" type="text" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    <label for="aws-access-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Access Key <span class="text-red-500">*</span></label>
+                                    <input id="aws-access-key" name="aws-access-key" type="password" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
                                 </div>
                                 <div>
-                                    <label for="aws-access-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Access Key</label>
-                                    <input id="aws-access-key" name="aws-access-key" type="password" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    <label for="aws-secret-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Secret Key <span class="text-red-500">*</span></label>
+                                    <input id="aws-secret-key" name="aws-secret-key" type="password" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
                                 </div>
                                 <div>
-                                    <label for="aws-secret-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Secret Key</label>
-                                    <input id="aws-secret-key" name="aws-secret-key" type="password" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
-                                </div>
-                                <div>
-                                    <label for="aws-endpoint" class="block text-sm font-medium text-gray-700 dark:text-gray-400">S3 Compatible Storage Endpoint (Optional)</label>
-                                    <input id="aws-endpoint" name="aws-endpoint" type="text" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off">
-                                </div>
-                                <div>
-				    <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval (sec)</label>
-				    <input id="bkup-interval" name="bkup-interval" type="number" min="30" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
-				</div>
-                                <div>
-                                    <label for="encryption-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                        Encryption Key
-                                        <span class="ml-1 relative group cursor-pointer">
-                                            <span class="text-xs">ℹ</span>
-                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 w-64 bg-black text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                                                Choose a secure 8+ character string. This is to encrypt the bkup file before uploading to cloud. Securely store this somewhere as you will need this to restore bkup from cloud.
-                                            </div>
-                                        </span>
+                                    <label for="aws-endpoint" class="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                        S3 Compatible Storage Endpoint
+                                        <button class="ml-1 text-blue-600 text-lg hint--top hint--rounded hint--medium" aria-label="For Amazon AWS, leave this blank. For S3 compatible cloud services like Cloudflare, iDrive and the likes, populate this.">ⓘ</button>
                                     </label>
-                                    <input id="encryption-key" name="encryption-key" type="password" class="z-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    <input id="aws-endpoint" name="aws-endpoint" type="text" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off">
+                                </div>
+                                <div class="flex space-x-4">
+                                    <div class="w-1/2">
+                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval (sec)</label>
+                                        <input id="bkup-interval" name="bkup-interval" type="number" min="30" placeholder="Default: 60" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    </div>
+                                    <div class="w-1/2">
+                                        <label for="encryption-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                            Encryption Key <span class="text-red-500">*</span>
+                                            <button class="ml-1 text-blue-600 text-lg hint--top-left hint--rounded hint--medium" aria-label="Choose a secure 8+ character string. This is to encrypt the bkup file before uploading to cloud. Securely store this somewhere as you will need this to restore bkup from cloud.">ⓘ</button>
+                                        </label>
+                                        <input id="encryption-key" name="encryption-key" type="password" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
+                                    </div>
+                                </div>
+                                <div class="mt-2 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">
+                                        bkup Size Safety Check
+                                        <button class="ml-1 text-blue-600 text-lg hint--top hint--rounded hint--medium" aria-label="This is to prevent unintentional corruption of app data. When exporting, the local data size and the cloud data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the cloud data is overwritten. If you feel this is a mistake and cloud data should not be overwritten, click on Cancel else click on Proceed. Similarly while importing, the cloud data size and local data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the local data is overwritten. If you feel your local data is more recent and should not be overwritten, click on Cancel else click on Proceed.">ⓘ</button>
+                                    </label>
+                                    <div class="mt-1 flex space-x-4">
+                                        <div class="w-1/2">
+                                            <label for="import-threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Import (%)</label>
+                                            <input id="import-threshold" name="import-threshold" type="number" step="0.1" min="0" placeholder="Default: 1" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off">
+                                        </div>
+                                        <div class="w-1/2">
+                                            <label for="export-threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Export (%)</label>
+                                            <input id="export-threshold" name="export-threshold" type="number" step="0.1" min="0" placeholder="Default: 10" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off">
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 flex items-center">
+                                        <input type="checkbox" id="alert-smaller-cloud" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                        <label for="alert-smaller-cloud" class="ml-2 block text-sm text-gray-700 dark:text-gray-400">
+                                            Alert if cloud bkup is smaller during import
+                                            <button class="ml-1 text-blue-600 text-sm hint--top-left hint--rounded hint--medium" aria-label="When enabled, you'll be alerted if the cloud bkup is smaller than your local data during import. This helps prevent data loss due toimporting older bkups.">ⓘ</button>
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="flex justify-between space-x-2">
-                                    <button id="save-aws-details-btn" type="button" class="z-1 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-default transition-colors" disabled>
+                                    <button id="save-aws-details-btn" type="button" class="z-1 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-default transition-colors" disabled>
                                         Save
                                     </button>
                                 </div>
@@ -243,7 +275,10 @@ function openSyncModal() {
                         </div>
                     </div>
                      <div class="flex items-center justify-end mb-4 space-x-2">
-                         <span class="text-sm text-gray-600 dark:text-gray-400">Console Logging</span>
+                         <span class="text-sm text-gray-600 dark:text-gray-400">
+                             Console Logging
+                             <button class="ml-1 text-blue-600 text-lg hint--top-left hint--rounded hint--medium" aria-label="Use this to enable detailed logging in Browser console for troubleshooting purpose. Clicking on this button will instantly start logging. However, earlier events will not be logged. You could add ?log=true to the page URL and reload the page to start logging from the beginning of the page load.">ⓘ</button>
+                         </span>
                          <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                              <input type="checkbox" id="console-logging-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
                              <label for="console-logging-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
@@ -287,6 +322,8 @@ function openSyncModal() {
 	const awsEndpointInput = document.getElementById('aws-endpoint');
 	const bkupIntervalInput = document.getElementById('bkup-interval');
 	const encryptionKeyInput = document.getElementById('encryption-key');
+	const importThresholdInput = document.getElementById('import-threshold');
+	const exportThresholdInput = document.getElementById('export-threshold');
 	const closeButton = document.getElementById('close-modal-btn');
 
 	const savedBucket = localStorage.getItem('aws-bucket');
@@ -297,6 +334,8 @@ function openSyncModal() {
 	const lastSync = localStorage.getItem('last-cloud-sync');
 	const savedInterval = localStorage.getItem('bkup-interval') || '60';
 	const savedEncryptionKey = localStorage.getItem('encryption-key');
+    const savedImportThreshold = localStorage.getItem('import-size-threshold');
+	const savedExportThreshold = localStorage.getItem('export-size-threshold');
 
 	if (savedBucket) awsBucketInput.value = savedBucket;
 	if (savedRegion) awsRegionInput.value = savedRegion;
@@ -305,6 +344,8 @@ function openSyncModal() {
 	if (savedEndpoint) awsEndpointInput.value = savedEndpoint;
 	if (bkupIntervalInput) bkupIntervalInput.value = savedInterval;
 	if (savedEncryptionKey) document.getElementById('encryption-key').value = savedEncryptionKey;
+    if (savedImportThreshold) document.getElementById('import-threshold').value = savedImportThreshold;
+	if (savedExportThreshold) document.getElementById('export-threshold').value = savedExportThreshold;
 
 	var element = document.getElementById('last-sync-msg');
 	if (lastSync) {
@@ -321,6 +362,9 @@ function openSyncModal() {
 		const awsSecretKeyInput = document.getElementById('aws-secret-key');
 		const bkupIntervalInput = document.getElementById('bkup-interval');
 		const encryptionKeyInput = document.getElementById('encryption-key');
+		const importThresholdInput = document.getElementById('import-threshold');
+		const exportThresholdInput = document.getElementById('export-threshold');
+
 		const hasRequiredFields = 
 			awsBucketInput?.value?.trim() &&
 			awsRegionInput?.value?.trim() &&
@@ -328,7 +372,9 @@ function openSyncModal() {
 			awsSecretKeyInput?.value?.trim() &&
 			bkupIntervalInput?.value &&
 			parseInt(bkupIntervalInput.value) >= 15 &&
-			encryptionKeyInput?.value?.trim().length >= 8;
+			encryptionKeyInput?.value?.trim().length >= 8 &&
+			(!importThresholdInput?.value || parseFloat(importThresholdInput.value) >= 0) &&
+			(!exportThresholdInput?.value || parseFloat(exportThresholdInput.value) >= 0);
 		const saveButton = document.getElementById('save-aws-details-btn');
 		const exportButton = document.getElementById('export-to-s3-btn');
 		const importButton = document.getElementById('import-from-s3-btn');
@@ -353,36 +399,10 @@ function openSyncModal() {
 	awsEndpointInput.addEventListener('input', updateButtonState);
 	bkupIntervalInput.addEventListener('input', updateButtonState);
 	encryptionKeyInput.addEventListener('input', updateButtonState);
+	importThresholdInput.addEventListener('input', updateButtonState);
+	exportThresholdInput.addEventListener('input', updateButtonState);
 
 	updateButtonState();
-
-	const infoIcon = document.getElementById('info-icon');
-	const tooltip = document.getElementById('tooltip');
-
-	function showTooltip() {
-		tooltip.style.removeProperty('display');
-		tooltip.classList.add('opacity-100');
-		tooltip.classList.remove('z-1');
-		tooltip.classList.add('z-10');
-		tooltip.classList.remove('opacity-0');
-	}
-
-	function hideTooltip() {
-		tooltip.style.display = 'none';
-		tooltip.classList.add('opacity-0');
-		tooltip.classList.remove('z-10');
-		tooltip.classList.add('z-1');
-		tooltip.classList.remove('opacity-100');
-	}
-
-	infoIcon.addEventListener('click', () => {
-		const isVisible = tooltip.classList.contains('opacity-100');
-		if (isVisible) {
-			hideTooltip();
-		} else {
-			showTooltip();
-		}
-	});
 
 	document
 		.getElementById('bkup-files')
@@ -618,6 +638,14 @@ function openSyncModal() {
 	});
 	const consoleLoggingToggle = document.getElementById('console-logging-toggle');
 	consoleLoggingToggle.checked = isConsoleLoggingEnabled;
+
+    const alertSmallerCloudCheckbox = document.getElementById('alert-smaller-cloud');
+    if (alertSmallerCloudCheckbox) {
+        alertSmallerCloudCheckbox.checked = getShouldAlertOnSmallerCloud();
+        alertSmallerCloudCheckbox.addEventListener('change', (e) => {
+            localStorage.setItem('alert-smaller-cloud', e.target.checked);
+        });
+    }
 }
 document.addEventListener('visibilitychange', async () => {
 	logToConsole('visibility', `Visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
@@ -1159,9 +1187,9 @@ async function bkupToS3() {
                 difference: `${localSize - cloudSize} bytes (${sizeDiffPercentage.toFixed(4)}%)`
             });
 
-            if (sizeDiffPercentage > EXPORT_SIZE_DIFF_THRESHOLD) {
+            if (sizeDiffPercentage > getExportThreshold()) {
                 isWaitingForUserInput = true;
-                const message = `Warning: The new bkup size (${localSize} bytes) differs significantly from the current cloud bkup (${cloudSize} bytes) by ${sizeDiffPercentage.toFixed(2)}%.\n\nDo you want to proceed with the upload?`;
+                const message = `Warning: The new bkup size (${localSize} bytes) differs significantly from the current cloud bkup (${cloudSize} bytes) by ${sizeDiffPercentage.toFixed(2)}% (threshold: ${getExportThreshold()}%).\n\nDo you want to proceed with the upload?`;
                 const shouldProceed = await showCustomAlert(message, 'Size Difference Warning', [
                     {text: 'Cancel', primary: false},
                     {text: 'Proceed', primary: true}
@@ -1382,53 +1410,21 @@ async function importFromS3() {
         const localFileSize = new Blob([currentDataStr]).size;
         const sizeDiffPercentage = cloudFileSize && localFileSize ? 
             Math.abs((cloudFileSize - localFileSize) / localFileSize * 100) : 0;
+
+        const shouldAlertOnSmallerCloud = getShouldAlertOnSmallerCloud();
+        const TOLERANCE_BYTES = 5;
+        const isCloudSignificantlySmaller = shouldAlertOnSmallerCloud && 
+            cloudFileSize < (localFileSize - TOLERANCE_BYTES);
+
         logToConsole('progress', 'Size comparison:', {
             cloudSize: `${cloudFileSize} bytes`,
             localSize: `${localFileSize} bytes`,
-            difference: `${cloudFileSize - localFileSize} bytes${sizeDiffPercentage ? ` (${sizeDiffPercentage.toFixed(4)}%)` : ''}`
+            difference: `${cloudFileSize - localFileSize} bytes${sizeDiffPercentage ? ` (${sizeDiffPercentage.toFixed(4)}%)` : ''}`,
+            isCloudSmaller: isCloudSignificantlySmaller
         });
-        const isTimeDifferenceSignificant = () => {
-            if (!lastSync) {
-                logToConsole('info', `No last sync found`);
-                return false;
-            }
-            const cloudDate = new Date(cloudLastModified);
-            try {
-                const [datePart, timePart] = lastSync.split(', ');
-                let localSyncDate;
-                if (datePart.includes('/')) {
-                    const [month, day, year] = datePart.split('/').map(num => parseInt(num));
-                    const [time, period] = timePart.split(' ');
-                    const [hours, minutes, seconds] = time.split(':').map(num => parseInt(num));
-                    let hour = hours;
-                    if (period) {
-                        if (period.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-                        else if (period.toUpperCase() === 'AM' && hour === 12) hour = 0;
-                    }
-                    localSyncDate = new Date(year, month - 1, day, hour, minutes, seconds);
-                } else {
-                    localSyncDate = new Date(lastSync);
-                }
-                if (!isNaN(localSyncDate.getTime())) {
-                    const diffInMilliseconds = Math.abs(cloudDate - localSyncDate);
-                    const diffInHours = diffInMilliseconds / (1000 * 60 * 60);
-                    logToConsole('time', 'Time comparison:', {
-                        lastSync: localSyncDate.toISOString(),
-                        cloudModified: cloudDate.toISOString(),
-                        difference: `${diffInHours.toFixed(2)} hours`,
-                        localFormat: lastSync
-                    });
-                    return diffInHours > 24;
-                }
-                throw new Error('Invalid date format');
-            } catch (error) {
-                logToConsole('error', `Error parsing dates:`, error);
-                return false;
-            }
-        };
-        // Local vs Cloud data - 5% comparison criteria
-        const shouldPrompt = localFileSize > 0 && sizeDiffPercentage > IMPORT_SIZE_DIFF_THRESHOLD;
-        logToConsole('info', `Should prompt user: ${shouldPrompt}`);
+
+        const shouldPrompt = (localFileSize > 0 && sizeDiffPercentage > getImportThreshold()) || isCloudSignificantlySmaller;
+        
         if (shouldPrompt) {
             logToConsole('info', `Showing prompt to user...`);
             isWaitingForUserInput = true;
@@ -1448,8 +1444,11 @@ async function importFromS3() {
                 if (cloudFileSize) {
                     message += `Size difference: ${sizeDiffPercentage.toFixed(2)}%\n\n`;
                 }
-                if (cloudFileSize && sizeDiffPercentage > 1) {
-                    message += '⚠️ Size difference exceeds 1%\n';
+                if (cloudFileSize && sizeDiffPercentage > getImportThreshold()) {
+                    message += `⚠️ Size difference exceeds ${getImportThreshold()}%\n`;
+                }
+                if (isCloudSignificantlySmaller) {
+                    message += '⚠️ Warning: Cloud bkup is smaller than local data\n';
                 }
                 message += '\nDo you want to proceed with importing the cloud bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
                 const shouldProceed = await showCustomAlert(message, 'Confirmation required', [
@@ -1457,7 +1456,7 @@ async function importFromS3() {
                     {text: 'Proceed', primary: true}
                 ]);
                 if (!shouldProceed) {
-                    logToConsole('error', `Import cancelled by user`);
+                    logToConsole('info', `Import cancelled by user`);
                     isWaitingForUserInput = false;
                     logToConsole('resume', `Resuming bkup interval after user cancelled cloud import`);
                     startbkupInterval();
@@ -1965,3 +1964,63 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+function showInfoModal(title, content) {
+    const infoModal = document.createElement('div');
+    infoModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999] p-4';
+    
+    const safeContent = content
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+        .replace(/<br\/><br\/>/g, '<br/><br/>');
+
+    infoModal.innerHTML = `
+        <div class="bg-white dark:bg-zinc-900 rounded-lg w-full max-w-lg">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${title}</h3>
+            </div>
+            <div class="p-4 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                ${safeContent}
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+                <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(infoModal);
+
+    infoModal.addEventListener('click', (e) => {
+        if (e.target === infoModal || e.target.closest('button')) {
+            infoModal.remove();
+        }
+    });
+}
+
+const hintCustomStyles = document.createElement('style');
+hintCustomStyles.textContent = `
+    [class*="hint--"][aria-label]:after {
+        white-space: pre-wrap;
+        max-width: 300px;
+        word-wrap: break-word;
+        line-height: 1.4;
+        padding: 8px 10px;
+    }
+    .hint--medium:after {
+        width: 250px;
+    }
+    .hint--large:after {
+        width: 350px;
+    }
+    .hint--left:after {
+        margin-right: 10px;
+    }
+    .hint--bottom:after {
+        margin-top: 6px;
+    }
+`;
+document.head.appendChild(hintCustomStyles);
+
+function getShouldAlertOnSmallerCloud() {
+    return localStorage.getItem('alert-smaller-cloud') === 'true';
+}
