@@ -169,7 +169,7 @@ function openSyncModal() {
         <div class="inline-block w-full align-bottom bg-white dark:bg-zinc-950 rounded-lg px-4 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:p-6 sm:align-middle pt-4 overflow-hidden sm:max-w-lg mt-4">
             <div class="text-gray-800 dark:text-white text-left text-sm">
                 <div class="flex justify-center items-center mb-3">
-                    <h3 class="text-center text-xl font-bold">bkup & Sync</h3>
+                    <h3 class="text-center text-xl font-bold">R2Cloud Sync</h3>
                     <button class="ml-2 text-blue-600 text-lg hint--bottom-left hint--rounded hint--large" 
                         aria-label="Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key and Encryption key.&#10;&#10;Initial bkup: You will need to click on Export to create your first bkup in S3. Thereafter, automatic bkups are done to S3 as per bkup Interval if the browser tab is active.&#10;&#10;Restore bkup: If S3 already has an existing bkup, this extension will automatically pick it and restore the local data.&#10;&#10;Adhoc bkup & Restore: Use the Export and Import to perform on-demand bkup or restore. Note that this overwrites the main bkup/local data.&#10;&#10;Snapshot: Creates an instant no-touch bkup that will not be overwritten.&#10;&#10;Download: You can select the bkup data to be download and click on Download button to download it for local storage.&#10;&#10;Restore: Select the bkup you want to restore and Click on Restore. The ttmd data will be restored to the selected bkup data/date.">ⓘ</button>
                 </div>
@@ -177,7 +177,7 @@ function openSyncModal() {
                     <div>
                         <div class="mt-4 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available bkups</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available Bkups</label>
                                 <button id="refresh-bkups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -232,7 +232,7 @@ function openSyncModal() {
                                 </div>
                                 <div class="flex space-x-4">
                                     <div class="w-1/2">
-                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval (sec)</label>
+                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Interval (sec)</label>
                                         <input id="bkup-interval" name="bkup-interval" type="number" min="30" placeholder="Default: 60" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
                                     </div>
                                     <div class="w-1/2">
@@ -245,7 +245,7 @@ function openSyncModal() {
                                 </div>
                                 <div class="mt-2 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                        bkup Size Safety Check
+                                        Size Safety Check
                                         <button class="ml-1 text-blue-600 text-lg hint--top hint--rounded hint--medium" aria-label="This is to prevent unintentional corruption of app data. When exporting, the local data size and the cloud data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the cloud data is overwritten. If you feel this is a mistake and cloud data should not be overwritten, click on Cancel else click on Proceed. Similarly while importing, the cloud data size and local data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the local data is overwritten. If you feel your local data is more recent and should not be overwritten, click on Cancel else click on Proceed.">ⓘ</button>
                                     </label>
                                     <div class="mt-1 flex space-x-4">
