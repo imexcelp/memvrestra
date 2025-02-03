@@ -19,7 +19,7 @@ hintCssLink.href = 'https://cdn.jsdelivr.net/npm/hint.css/hint.min.css';
 document.head.appendChild(hintCssLink);
 
 function getImportThreshold() {
-    return parseFloat(localStorage.getItem('import-size-threshold')) || 1;
+    return parseFloat(localStorage.getItem('import-size-threshold')) || 10;
 }
 
 function getExportThreshold() {
@@ -332,7 +332,7 @@ function openSyncModal() {
 	const savedSecretKey = localStorage.getItem('aws-secret-key');
 	const savedEndpoint = localStorage.getItem('aws-endpoint');
 	const lastSync = localStorage.getItem('last-cloud-sync');
-	const savedInterval = localStorage.getItem('bkup-interval') || '60';
+	const savedInterval = localStorage.getItem('bkup-interval') || '300';
 	const savedEncryptionKey = localStorage.getItem('encryption-key');
     const savedImportThreshold = localStorage.getItem('import-size-threshold');
 	const savedExportThreshold = localStorage.getItem('export-size-threshold');
@@ -993,7 +993,7 @@ function startbkupInterval() {
             return;
         }
         localStorage.setItem('activeTabbkupRunning', 'true');
-        const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 60;
+        const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 300;
         const intervalInMilliseconds = Math.max(configuredInterval * 1000, 15000);
         logToConsole('info', `Setting bkup interval to ${intervalInMilliseconds/1000} seconds`);
         bkupIntervalRunning = true;
