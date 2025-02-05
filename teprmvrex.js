@@ -1,4 +1,4 @@
-const VERSION = '222025';
+const VERSION = '242025';
 let bkupIntervalRunning = false;
 let wasImportSuccessful = false;
 let isExportInProgress = false;
@@ -19,7 +19,7 @@ hintCssLink.href = 'https://cdn.jsdelivr.net/npm/hint.css/hint.min.css';
 document.head.appendChild(hintCssLink);
 
 function getImportThreshold() {
-    return parseFloat(localStorage.getItem('import-size-threshold')) || 10;
+    return parseFloat(localStorage.getItem('import-size-threshold')) || 1;
 }
 
 function getExportThreshold() {
@@ -169,7 +169,7 @@ function openSyncModal() {
         <div class="inline-block w-full align-bottom bg-white dark:bg-zinc-950 rounded-lg px-4 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:p-6 sm:align-middle pt-4 overflow-hidden sm:max-w-lg mt-4">
             <div class="text-gray-800 dark:text-white text-left text-sm">
                 <div class="flex justify-center items-center mb-3">
-                    <h3 class="text-center text-xl font-bold">R2Cloud Sync</h3>
+                    <h3 class="text-center text-xl font-bold">bkup & Sync</h3>
                     <button class="ml-2 text-blue-600 text-lg hint--bottom-left hint--rounded hint--large" 
                         aria-label="Fill form & Save. If you are using Amazon S3 - fill in S3 Bucket Name, AWS Region, AWS Access Key, AWS Secret Key and Encryption key.&#10;&#10;Initial bkup: You will need to click on Export to create your first bkup in S3. Thereafter, automatic bkups are done to S3 as per bkup Interval if the browser tab is active.&#10;&#10;Restore bkup: If S3 already has an existing bkup, this extension will automatically pick it and restore the local data.&#10;&#10;Adhoc bkup & Restore: Use the Export and Import to perform on-demand bkup or restore. Note that this overwrites the main bkup/local data.&#10;&#10;Snapshot: Creates an instant no-touch bkup that will not be overwritten.&#10;&#10;Download: You can select the bkup data to be download and click on Download button to download it for local storage.&#10;&#10;Restore: Select the bkup you want to restore and Click on Restore. The ttmd data will be restored to the selected bkup data/date.">ⓘ</button>
                 </div>
@@ -177,7 +177,7 @@ function openSyncModal() {
                     <div>
                         <div class="mt-4 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available Bkups</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Available bkups</label>
                                 <button id="refresh-bkups-btn" class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50" disabled>
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -232,7 +232,8 @@ function openSyncModal() {
                                 </div>
                                 <div class="flex space-x-4">
                                     <div class="w-1/2">
-                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Interval (sec)</label>
+                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval
+                                        <button class="ml-1 text-blue-600 text-lg hint--top-right hint--rounded hint--medium" aria-label="How often do you want to bkup your data to cloud? Minimum 15 seconds, Default: 60 seconds">ⓘ</button></label>
                                         <input id="bkup-interval" name="bkup-interval" type="number" min="30" placeholder="Default: 60" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
                                     </div>
                                     <div class="w-1/2">
@@ -245,8 +246,8 @@ function openSyncModal() {
                                 </div>
                                 <div class="mt-2 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 dark:bg-zinc-800 dark:border-gray-600">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                        Size Safety Check
-                                        <button class="ml-1 text-blue-600 text-lg hint--top hint--rounded hint--medium" aria-label="This is to prevent unintentional corruption of app data. When exporting, the local data size and the cloud data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the cloud data is overwritten. If you feel this is a mistake and cloud data should not be overwritten, click on Cancel else click on Proceed. Similarly while importing, the cloud data size and local data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the local data is overwritten. If you feel your local data is more recent and should not be overwritten, click on Cancel else click on Proceed.">ⓘ</button>
+                                        bkup Size Safety Check
+                                        <button class="ml-1 text-blue-600 text-lg hint--top hint--rounded hint--large" aria-label="This is to prevent unintentional corruption of app data. When exporting, the local data size and the cloud data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the cloud data is overwritten. If you feel this is a mistake and cloud data should not be overwritten, click on Cancel else click on Proceed. Similarly while importing, the cloud data size and local data size is compared and if the difference percentage exceeds the configured threshold, you are asked to provide a confirmation before the local data is overwritten. If you feel your local data is more recent and should not be overwritten, click on Cancel else click on Proceed.">ⓘ</button>
                                     </label>
                                     <div class="mt-1 flex space-x-4">
                                         <div class="w-1/2">
@@ -262,7 +263,6 @@ function openSyncModal() {
                                         <input type="checkbox" id="alert-smaller-cloud" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                                         <label for="alert-smaller-cloud" class="ml-2 block text-sm text-gray-700 dark:text-gray-400">
                                             Alert if cloud bkup is smaller during import
-                                            <button class="ml-1 text-blue-600 text-sm hint--top-left hint--rounded hint--medium" aria-label="When enabled, you'll be alerted if the cloud bkup is smaller than your local data during import. This helps prevent data loss due toimporting older bkups.">ⓘ</button>
                                         </label>
                                     </div>
                                 </div>
@@ -332,7 +332,7 @@ function openSyncModal() {
 	const savedSecretKey = localStorage.getItem('aws-secret-key');
 	const savedEndpoint = localStorage.getItem('aws-endpoint');
 	const lastSync = localStorage.getItem('last-cloud-sync');
-	const savedInterval = localStorage.getItem('bkup-interval') || '300';
+	const savedInterval = localStorage.getItem('bkup-interval') || '60';
 	const savedEncryptionKey = localStorage.getItem('encryption-key');
     const savedImportThreshold = localStorage.getItem('import-size-threshold');
 	const savedExportThreshold = localStorage.getItem('export-size-threshold');
@@ -442,6 +442,15 @@ function openSyncModal() {
 			const endpoint = awsEndpointInput.value.trim();
 			const bkupInterval = document.getElementById('bkup-interval').value;
 			const encryptionKey = document.getElementById('encryption-key').value.trim();
+			const importThreshold = document.getElementById('import-threshold').value;
+			const exportThreshold = document.getElementById('export-threshold').value;
+
+			if (importThreshold) {
+				localStorage.setItem('import-size-threshold', importThreshold);
+			}
+			if (exportThreshold) {
+				localStorage.setItem('export-size-threshold', exportThreshold);
+			}
 
 			if (bkupInterval < 15) {
 				alert('bkup interval must be at least 15 seconds');
@@ -648,42 +657,48 @@ function openSyncModal() {
     }
 }
 document.addEventListener('visibilitychange', async () => {
-	logToConsole('visibility', `Visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
-	if (!document.hidden) {
-		logToConsole('active', 'Tab became active');
-		if (bkupIntervalRunning) {
-			localStorage.setItem('activeTabbkupRunning', 'false');
-			clearInterval(bkupInterval);
-			bkupIntervalRunning = false;
-		}
-		try {
-			logToConsole('info', 'Checking for updates from S3...');
-			const importSuccessful = await checkAndImportbkup();
-			if (importSuccessful) {
-				const currentTime = new Date().toLocaleString();
-				const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
-				const today = new Date();
-				const currentDateSuffix = `${today.getFullYear()}${String(
-					today.getMonth() + 1
-				).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-				
-				var element = document.getElementById('last-sync-msg');
-				if (element !== null) {
-					element.innerText = `Last sync done at ${currentTime}`;
-					element = null;
-				}
-				if (!storedSuffix || currentDateSuffix < storedSuffix) {
-					await handlebkupFiles();
-				}
-				logToConsole('success', 'Import successful, starting bkup interval');
-				startbkupInterval();
-			} else {
-				logToConsole('warning', 'Import was not successful, not starting bkup interval');
-			}
-		} catch (error) {
-			logToConsole('error', 'Error during tab activation:', error);
-		}
-	}
+    logToConsole('visibility', `Visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
+    if (!document.hidden) {
+        logToConsole('active', 'Tab became active');
+        if (bkupIntervalRunning) {
+            localStorage.setItem('activeTabbkupRunning', 'false');
+            clearInterval(bkupInterval);
+            bkupIntervalRunning = false;
+        }
+        
+        if (isWaitingForUserInput) {
+            logToConsole('skip', 'Tab activation tasks skipped - waiting for user input');
+            return;
+        }
+
+        try {
+            logToConsole('info', 'Checking for updates from S3...');
+            const importSuccessful = await checkAndImportbkup();
+            if (importSuccessful) {
+                const currentTime = new Date().toLocaleString();
+                const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
+                const today = new Date();
+                const currentDateSuffix = `${today.getFullYear()}${String(
+                    today.getMonth() + 1
+                ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+                
+                var element = document.getElementById('last-sync-msg');
+                if (element !== null) {
+                    element.innerText = `Last sync done at ${currentTime}`;
+                    element = null;
+                }
+                if (!storedSuffix || currentDateSuffix < storedSuffix) {
+                    await handlebkupFiles();
+                }
+                logToConsole('success', 'Import successful, starting bkup interval');
+                startbkupInterval();
+            } else {
+                logToConsole('warning', 'Import was not successful, not starting bkup interval');
+            }
+        } catch (error) {
+            logToConsole('error', 'Error during tab activation:', error);
+        }
+    }
 });
 async function handleTimeBasedbkup() {
     const bucketName = localStorage.getItem('aws-bucket');
@@ -993,11 +1008,10 @@ function startbkupInterval() {
             return;
         }
         localStorage.setItem('activeTabbkupRunning', 'true');
-        const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 300;
+        const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 60;
         const intervalInMilliseconds = Math.max(configuredInterval * 1000, 15000);
         logToConsole('info', `Setting bkup interval to ${intervalInMilliseconds/1000} seconds`);
         bkupIntervalRunning = true;
-        performbkup();
         bkupInterval = setInterval(() => {
             logToConsole('start', 'Interval triggered');
             performbkup();
@@ -1068,9 +1082,28 @@ async function loadJSZip() {
 
 function importDataToStorage(data) {
     return new Promise((resolve, reject) => {
+        // Keys that should not be overwritten during import
+        const preserveKeys = [
+            'import-size-threshold',
+            'export-size-threshold',
+            'alert-smaller-cloud',
+            'encryption-key',
+            'aws-bucket',
+            'aws-access-key', 
+            'aws-secret-key',
+            'aws-region',
+            'aws-endpoint',
+            'bkup-interval'
+        ];
+
+        // Only import localStorage items that aren't in preserveKeys
         Object.keys(data.localStorage).forEach((key) => {
-            localStorage.setItem(key, data.localStorage[key]);
+            if (!preserveKeys.includes(key)) {
+                localStorage.setItem(key, data.localStorage[key]);
+            }
         });
+
+        // Rest of the existing importDataToStorage code...
         const request = indexedDB.open('keyval-store');
         request.onerror = () => reject(request.error);
         request.onsuccess = function (event) {
@@ -1204,7 +1237,6 @@ async function bkupToS3() {
             if (err.code !== 'NoSuchKey') {
                 throw err;
             }
-            // If no existing bkup, continue with upload
             logToConsole('info', 'No existing bkup found, proceeding with upload');
         }
 
@@ -1366,6 +1398,10 @@ async function bkupToS3() {
 }
 
 async function importFromS3() {
+    if (isWaitingForUserInput) {
+        logToConsole('skip', 'Skipping import - another prompt is already open');
+        return false;
+    }
     logToConsole('download', 'Starting import from S3...');
     try {
         const bucketName = localStorage.getItem('aws-bucket');
@@ -1424,21 +1460,22 @@ async function importFromS3() {
         });
 
         const shouldPrompt = (localFileSize > 0 && sizeDiffPercentage > getImportThreshold()) || isCloudSignificantlySmaller;
-        
+
         if (shouldPrompt) {
-            logToConsole('info', `Showing prompt to user...`);
-            isWaitingForUserInput = true;
-            const existingIntervals = [bkupInterval];
-            existingIntervals.forEach(interval => {
-                if (interval) {
-                    logToConsole('pause', `Clearing bkupinterval ${interval}`);
-                    clearInterval(interval);
-                }
-            });
-            bkupInterval = null;
-            bkupIntervalRunning = false;
-            localStorage.setItem('activeTabbkupRunning', 'false');
             try {
+                isWaitingForUserInput = true;
+                logToConsole('info', `Showing prompt to user...`);
+                const existingIntervals = [bkupInterval];
+                existingIntervals.forEach(interval => {
+                    if (interval) {
+                        logToConsole('pause', `Clearing bkupinterval ${interval}`);
+                        clearInterval(interval);
+                    }
+                });
+                bkupInterval = null;
+                bkupIntervalRunning = false;
+                localStorage.setItem('activeTabbkupRunning', 'false');
+
                 let message = `Cloud bkup size: ${cloudFileSize || 'Unknown'} bytes\n`;
                 message += `Local data size: ${localFileSize} bytes\n`;
                 if (cloudFileSize) {
@@ -1451,26 +1488,23 @@ async function importFromS3() {
                     message += '⚠️ Warning: Cloud bkup is smaller than local data\n';
                 }
                 message += '\nDo you want to proceed with importing the cloud bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
+
                 const shouldProceed = await showCustomAlert(message, 'Confirmation required', [
                     {text: 'Cancel', primary: false},
                     {text: 'Proceed', primary: true}
                 ]);
+
                 if (!shouldProceed) {
                     logToConsole('info', `Import cancelled by user`);
-                    isWaitingForUserInput = false;
                     logToConsole('resume', `Resuming bkup interval after user cancelled cloud import`);
                     startbkupInterval();
                     return false;
                 }
-                isWaitingForUserInput = false;
             } catch (error) {
-                isWaitingForUserInput = false;
-                if (bkupInterval) {
-                    clearInterval(bkupInterval);
-                    bkupInterval = null;
-                    bkupIntervalRunning = false;
-                }
+                logToConsole('error', 'Error during import prompt:', error);
                 throw error;
+            } finally {
+                isWaitingForUserInput = false;
             }
         }
         logToConsole('info', `Fetching data from S3...`);
@@ -1505,13 +1539,9 @@ async function importFromS3() {
         }
         logToConsole('success', `Import completed successfully`);
         wasImportSuccessful = true;
-        logToConsole('info', `Resuming bkup interval after successful import`);
-        startbkupInterval();
         return true;
     } catch (error) {
         logToConsole('error', `Import failed with error:`, error);
-        logToConsole('info', `Resuming bkup interval after import error`);
-        startbkupInterval();
         throw error;
     }
 }
