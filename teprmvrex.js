@@ -65,18 +65,29 @@ function getExportThreshold() {
 function initializeLoggingState() {
     const urlParams = new URLSearchParams(window.location.search);
     const logParam = urlParams.get('log');
+    const syncStatusParam = urlParams.get('syncstatus');
+    
     if (logParam === 'true') {
         isConsoleLoggingEnabled = true;
         logToConsole('info', `ttmd cloud bkup version ${VERSION}`);
     }
+    
+    if (syncStatusParam === 'true') {
+        localStorage.setItem('sync-status-hidden', 'false');
+        urlParams.delete('syncstatus');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+    }
 }
 
 function createSyncStatus() {
-    const isHidden = localStorage.getItem('sync-status-hidden') === 'true';
-    if (isHidden) return;
-
     const syncStatus = document.createElement('div');
     syncStatus.id = 'sync-status';
+    
+    const isHidden = localStorage.getItem('sync-status-hidden') === 'true';
+    if (isHidden) {
+        syncStatus.style.display = 'none';
+    }
     
     const savedPosition = JSON.parse(localStorage.getItem('sync-status-position') || '{"x": "right: 20px", "y": "top: 20px"}');
     Object.entries(savedPosition).forEach(([axis, value]) => {
@@ -320,7 +331,8 @@ async function importFromS3() {
             cloudSize: `${cloudFileSize} bytes`,
             localSize: `${localFileSize} bytes`,
             difference: `${cloudFileSize - localFileSize} bytes${sizeDiffPercentage ? ` (${sizeDiffPercentage.toFixed(4)}%)` : ''}`,
-            isCloudSmaller: isCloudSignificantlySmaller
+            isCloudSmaller: isCloudSignificantlySmaller,
+            tolerance: `${TOLERANCE_BYTES} bytes`
         });
 
         const shouldPrompt = (localFileSize > 0 && sizeDiffPercentage > getImportThreshold()) || isCloudSignificantlySmaller;
@@ -351,7 +363,7 @@ async function importFromS3() {
                 if (isCloudSignificantlySmaller) {
                     message += '⚠️ Warning: Cloud bkup is smaller than local data\n';
                 }
-                message += '\nDo you want to proceed with importing the cloud Bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
+                message += '\nDo you want to proceed with importing the cloud bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
 
                 const shouldProceed = await showCustomAlert(message, 'Confirmation required', [
                     { text: 'Cancel', primary: false },
@@ -360,8 +372,7 @@ async function importFromS3() {
 
                 if (!shouldProceed) {
                     logToConsole('info', `Import cancelled by user`);
-                    logToConsole('resume', `Resuming bkup interval after user cancelled cloud import`);
-                    startbkupInterval();
+                    isWaitingForUserInput = false;
                     return false;
                 }
             } catch (error) {
@@ -520,7 +531,7 @@ async function bkupToS3() {
                         let lastError = null;
                         let retryCount = 0;
                         const maxRetries = 3;
-                        const baseDelay = 2000; // 2 seconds base delay
+                        const baseDelay = 2000;
 
                         while (!uploadSuccess && retryCount < maxRetries) {
                             try {
@@ -570,7 +581,6 @@ async function bkupToS3() {
                                     throw new Error(`Failed to upload part ${partNumber} after ${maxRetries} attempts: ${lastError.message}`);
                                 }
 
-                                // Exponential backoff with jitter
                                 const delay = Math.min(baseDelay * Math.pow(2, retryCount) + Math.random() * 1000, 30000);
                                 logToConsole('info', `Retrying part ${partNumber} in ${Math.round(delay/1000)} seconds`);
                                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -706,11 +716,9 @@ async function handleDOMReady() {
                     await handlebkupFiles();
                 }
                 wasImportSuccessful = true;
-                startbkupInterval();
             } else {
                 wasImportSuccessful = true;
-                logToConsole('warning', 'Import was cancelled by user - starting bkup of local data to cloud');
-                startbkupInterval();
+                logToConsole('info', 'Import was cancelled by user - starting bkup of local data to cloud');
             }
 
         } catch (error) {
@@ -870,7 +878,7 @@ function openSyncModal() {
                                 </div>
                                 <div class="flex space-x-4">
                                     <div class="w-1/2">
-                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">Interval
+                                        <label for="bkup-interval" class="block text-sm font-medium text-gray-700 dark:text-gray-400">bkup Interval
                                         <button class="ml-1 text-blue-600 text-lg hint--top-right hint--rounded hint--medium" aria-label="How often do you want to bkup your data to cloud? Minimum 15 seconds, Default: 60 seconds">ⓘ</button></label>
                                         <input id="bkup-interval" name="bkup-interval" type="number" min="30" placeholder="Default: 60" class="z-1 w-full px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-zinc-700" autocomplete="off" required>
                                     </div>
@@ -1063,7 +1071,7 @@ function openSyncModal() {
             );
             if (!extensionURLs.some((url) => url.endsWith('teprmvrex.js'))) {
                 extensionURLs.push(
-                    'https://imexcelp.github.io/memvrestra/teprmvrex.js'
+                    'https://imexcelp..io/memvrestra/teprmvrex.js'
                 );
                 localStorage.setItem(
                     'TM_useExtensionURLs',
@@ -1291,50 +1299,74 @@ function openSyncModal() {
         });
     }
 }
+
+let visibilityChangeTimeout = null;
+let isProcessingVisibilityChange = false;
+
 document.addEventListener('visibilitychange', async () => {
     logToConsole('visibility', `Visibility changed: ${document.hidden ? 'hidden' : 'visible'}`);
+    
+    if (visibilityChangeTimeout) {
+        clearTimeout(visibilityChangeTimeout);
+    }
+
     if (!document.hidden) {
-        logToConsole('active', 'Tab became active');
-        if (bkupIntervalRunning) {
-            localStorage.setItem('activeTabbkupRunning', 'false');
-            clearInterval(bkupInterval);
-            bkupIntervalRunning = false;
-        }
-
-        if (isWaitingForUserInput) {
-            logToConsole('skip', 'Tab activation tasks skipped - waiting for user input');
-            return;
-        }
-
-        try {
-            logToConsole('info', 'Checking for updates from S3...');
-            const importSuccessful = await checkAndImportbkup();
-            if (importSuccessful) {
-                const currentTime = new Date().toLocaleString();
-                const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
-                const today = new Date();
-                const currentDateSuffix = `${today.getFullYear()}${String(
-                    today.getMonth() + 1
-                ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-
-                var element = document.getElementById('last-sync-msg');
-                if (element !== null) {
-                    element.innerText = `Last sync done at ${currentTime}`;
-                    element = null;
-                }
-                if (!storedSuffix || currentDateSuffix > storedSuffix) {
-                    await handlebkupFiles();
-                }
-                logToConsole('success', 'Import successful, starting bkup interval');
-                startbkupInterval();
-            } else {
-                logToConsole('warning', 'Import was not successful, not starting bkup interval');
+        visibilityChangeTimeout = setTimeout(async () => {
+            if (isProcessingVisibilityChange) {
+                logToConsole('skip', 'Already processing visibility change, skipping');
+                return;
             }
-        } catch (error) {
-            logToConsole('error', 'Error during tab activation:', error);
-        }
+
+            try {
+                isProcessingVisibilityChange = true;
+                logToConsole('active', 'Tab became active');
+
+                if (bkupIntervalRunning) {
+                    localStorage.setItem('activeTabbkupRunning', 'false');
+                    clearInterval(bkupInterval);
+                    bkupIntervalRunning = false;
+                }
+
+                if (isWaitingForUserInput) {
+                    logToConsole('skip', 'Tab activation tasks skipped - waiting for user input');
+                    return;
+                }
+
+                try {
+                    logToConsole('info', 'Checking for updates from S3...');
+                    const importSuccessful = await checkAndImportbkup();
+                    if (importSuccessful) {
+                        const currentTime = new Date().toLocaleString();
+                        const storedSuffix = localStorage.getItem('last-daily-bkup-in-s3');
+                        const today = new Date();
+                        const currentDateSuffix = `${today.getFullYear()}${String(
+                            today.getMonth() + 1
+                        ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+
+                        var element = document.getElementById('last-sync-msg');
+                        if (element !== null) {
+                            element.innerText = `Last sync done at ${currentTime}`;
+                            element = null;
+                        }
+                        if (!storedSuffix || currentDateSuffix > storedSuffix) {
+                            await handlebkupFiles();
+                        }
+                        logToConsole('success', 'Import successful, starting bkup interval');
+                        startbkupInterval();
+                    } else {
+                        logToConsole('info', 'Import was not successful, not starting bkup interval');
+                    }
+                } catch (error) {
+                    logToConsole('error', 'Error during tab activation:', error);
+                }
+            } finally {
+                isProcessingVisibilityChange = false;
+                visibilityChangeTimeout = null;
+            }
+        }, 300);
     }
 });
+
 async function handleTimeBasedbkup() {
     const bucketName = localStorage.getItem('aws-bucket');
     const lastTimebkup = parseInt(localStorage.getItem('last-time-based-bkup'));
@@ -1412,7 +1444,8 @@ async function checkAndImportbkup() {
             logToConsole('success', 'Import successful, starting bkup interval');
             return true;
         } else {
-            logToConsole('info', 'Import was cancelled or skipped');
+            wasImportSuccessful = true;
+            startbkupInterval();  
             return false;
         }
     } catch (err) {
@@ -1636,27 +1669,43 @@ function startbkupInterval() {
         logToConsole('skip', 'Skipping interval start - waiting for user input');
         return;
     }
-    logToConsole('start', 'Starting bkup interval...');
     if (bkupIntervalRunning) {
-        logToConsole('info', 'Clearing existing interval');
+        logToConsole('skip', 'bkup interval already running, skipping start');
+        return;
+    }
+
+    logToConsole('start', 'Starting bkup interval...');
+    
+    if (bkupInterval) {
+        logToConsole('cleanup', `Clearing existing interval ${bkupInterval}`);
         clearInterval(bkupInterval);
-        bkupIntervalRunning = false;
         bkupInterval = null;
     }
+
     localStorage.setItem('activeTabbkupRunning', 'false');
+    
     setTimeout(() => {
         if (isWaitingForUserInput) {
             return;
         }
+        
+        if (bkupIntervalRunning) {
+            logToConsole('skip', 'Another bkup interval was started, skipping');
+            return;
+        }
+
         localStorage.setItem('activeTabbkupRunning', 'true');
         const configuredInterval = parseInt(localStorage.getItem('bkup-interval')) || 60;
         const intervalInMilliseconds = Math.max(configuredInterval * 1000, 15000);
         logToConsole('info', `Setting bkup interval to ${intervalInMilliseconds / 1000} seconds`);
+        
         bkupIntervalRunning = true;
         bkupInterval = setInterval(() => {
             logToConsole('start', 'Interval triggered');
             performbkup();
         }, intervalInMilliseconds);
+        
+        logToConsole('success', `bkup interval started with ID ${bkupInterval}`);
     }, 100);
 }
 
