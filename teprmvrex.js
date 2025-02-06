@@ -1490,8 +1490,8 @@ async function importFromS3() {
                 message += '\nDo you want to proceed with importing the cloud bkup? Clicking "Proceed" will overwrite your local data. If you "Cancel", the local data will overwrite the cloud bkup.';
 
                 const shouldProceed = await showCustomAlert(message, 'Confirmation required', [
-                    {text: 'Cancel', primary: false},
-                    {text: 'Proceed', primary: true}
+                    {text: 'Local -> Cloud', primary: false},
+                    {text: 'Cloud -> Local', primary: true}
                 ]);
 
                 if (!shouldProceed) {
