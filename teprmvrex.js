@@ -712,7 +712,7 @@ async function handleDOMReady() {
                     today.getMonth() + 1
                 ).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
 
-                if (!storedSuffix || currentDateSuffix > storedSuffix) {
+                if (!storedSuffix || currentDateSuffix < storedSuffix) {
                     await handlebkupFiles();
                 }
                 wasImportSuccessful = true;
@@ -1348,7 +1348,7 @@ document.addEventListener('visibilitychange', async () => {
                             element.innerText = `Last sync done at ${currentTime}`;
                             element = null;
                         }
-                        if (!storedSuffix || currentDateSuffix > storedSuffix) {
+                        if (!storedSuffix || currentDateSuffix < storedSuffix) {
                             await handlebkupFiles();
                         }
                         logToConsole('success', 'Import successful, starting bkup interval');
