@@ -1,11 +1,11 @@
-const VERSION = '262025';
+const VERSION = '2112025';
 let bkupIntervalRunning = false;
 let wasImportSuccessful = false;
 let isExportInProgress = false;
 let isImportInProgress = false;
 let isSnapshotInProgress = false;
 let isConsoleLoggingEnabled = new URLSearchParams(window.location.search).get('log') === 'true';
-const TIME_bkup_INTERVAL = 15;
+const TIME_bkup_INTERVAL = 5;
 const TIME_bkup_FILE_PREFIX = `T-${TIME_bkup_INTERVAL}`;
 let awsSdkLoadPromise = null;
 const awsSdkPromise = loadAwsSdk();
