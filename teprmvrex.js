@@ -2633,18 +2633,13 @@ function getShouldAlertOnSmallerCloud() {
       button[data-element-id="workspace-profile-button"] {
         display: none !important;
       }
-
-      /* Hide Prompts button */
-      button[data-element-id="workspace-tab-prompts"] {
-        display: none !important;
-      }
     `;
 
     const styleElement = document.createElement('style');
     styleElement.textContent = hideButtonStyles;
     document.head.appendChild(styleElement);
 
-    console.log('Teams, Profile, and Prompts buttons hidden successfully');
+    console.log('Teams and Profile buttons hidden successfully');
   }
 
   // Check if the document is already loaded
