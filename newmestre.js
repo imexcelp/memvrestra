@@ -1,4 +1,4 @@
-const VERSION = "3425";
+const VERSION = "03052025";
 let backupIntervalRunning = false;
 let wasImportSuccessful = false;
 let isExportInProgress = false;
@@ -35,16 +35,50 @@ syncStatusStyles.textContent = `
         z-index: 1000;
         cursor: move;
         user-select: none;
-        transition: opacity 0.2s;
+        transition: all 0.3s ease;
         display: flex;
         align-items: center;
         gap: 12px;
-        max-width: 80%;
+        max-width: 95%;
         flex-wrap: nowrap;
         overflow-x: auto;
     }
-    #sync-status.dragging {
+    #sync-status.minimized {
+        max-width: 40px;
+        height: 40px;
+        padding: 8px;
+        overflow: hidden;
+        justify-content: center;
+        cursor: pointer;
+    }
+    #sync-status.minimized .sync-indicator {
+        margin: 0;
+        padding: 0;
+    }
+    #sync-status.minimized .sync-indicator span:not(.sync-dot),
+    #sync-status.minimized .import-indicator,
+    #sync-status.minimized .export-indicator,
+    #sync-status.minimized .mode-switch,
+    #sync-status.minimized .minimize-btn {
+        display: none;
+    }
+    .minimize-btn {
+        cursor: pointer;
+        padding: 2px;
+        line-height: 1;
+        border-radius: 4px;
+        margin-left: auto;
         opacity: 0.7;
+        transition: opacity 0.2s;
+        position: absolute;
+        right: 8px;
+        top: 4px;
+    }
+    .minimize-btn:hover {
+        opacity: 1;
+    }
+    #sync-status.minimized .minimize-btn {
+        transform: rotate(180deg);
     }
     .sync-failed {
         color: #ff4444;
@@ -182,15 +216,21 @@ function createSyncStatus() {
 
   const syncStatus = document.createElement("div");
   syncStatus.id = "sync-status";
+  syncStatus.classList.add("minimized");
 
   const isHidden = localStorage.getItem("sync-status-hidden") === "true";
   if (isHidden) {
     syncStatus.style.display = "none";
   }
 
+  const isMobile = window.innerWidth <= 768;
+  const defaultPosition = isMobile
+    ? { x: "left: 20px", y: "top: 60px" }
+    : { x: "right: 20px", y: "top: 20px" };
+
   const savedPosition = JSON.parse(
     localStorage.getItem("sync-status-position") ||
-      '{"x": "right: 20px", "y": "top: 20px"}'
+      JSON.stringify(defaultPosition)
   );
   Object.entries(savedPosition).forEach(([axis, value]) => {
     const [side, offset] = value.split(":");
@@ -204,15 +244,44 @@ function createSyncStatus() {
   let initialY;
   let xOffset = 0;
   let yOffset = 0;
+  let longPressTimer = null;
+  const LONG_PRESS_DURATION = 500; // 500ms for long press
 
   function dragStart(e) {
-    if (e.type === "touchstart") {
+    // Only apply long press for direct clicks on the minimized sync status container
+    if (syncStatus.classList.contains("minimized") && e.target === syncStatus) {
+      // For minimized state, start a timer for long press
+      longPressTimer = setTimeout(() => {
+        initiateDrag(e);
+      }, LONG_PRESS_DURATION);
+
+      // Add event listeners to cancel long press if mouse/touch moves or ends
+      const cancelLongPress = () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      };
+
+      document.addEventListener("mousemove", cancelLongPress, { once: true });
+      document.addEventListener("mouseup", cancelLongPress, { once: true });
+      document.addEventListener("touchmove", cancelLongPress, { once: true });
+      document.addEventListener("touchend", cancelLongPress, { once: true });
+    } else {
+      // For non-minimized state or child elements, start drag immediately
+      initiateDrag(e);
+    }
+  }
+
+  function initiateDrag(e) {
+    if (e.type === "touchstart" || e.type.includes("touch")) {
       initialX = e.touches[0].clientX - xOffset;
       initialY = e.touches[0].clientY - yOffset;
     } else {
       initialX = e.clientX - xOffset;
       initialY = e.clientY - yOffset;
     }
+
     if (e.target === syncStatus) {
       isDragging = true;
       syncStatus.classList.add("dragging");
@@ -220,6 +289,11 @@ function createSyncStatus() {
   }
 
   function dragEnd() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+
     if (!isDragging) return;
 
     isDragging = false;
@@ -298,46 +372,52 @@ function updateSyncStatus() {
       </span>`;
     };
 
-    const syncIndicator = getSyncStatus();
-    const importStatus = isImportInProgress
-      ? '⬇️ <span class="sync-spinner">↻</span>'
-      : lastImportStatus === "failed"
-      ? '<span class="sync-failed">⬇️ Failed</span>'
-      : lastImportTime
-      ? `<span class="import-indicator" data-action="import">⬇️ ${formatTime(
-          lastImportTime
-        )}</span>`
-      : "";
+    const getOperationStatus = () => {
+      if (isImportInProgress || isExportInProgress) {
+        return `<span class="sync-indicator">
+          <span class="sync-dot" style="background-color: #3B82F6"></span>
+          <span class="sync-spinner">↻</span>
+        </span>`;
+      }
+      return "";
+    };
 
-    const exportStatus = isExportInProgress
-      ? '⬆️ <span class="sync-spinner">↻</span>'
-      : lastExportStatus === "failed"
-      ? '<span class="sync-failed">⬆️ Failed</span>'
-      : lastExportTime
-      ? `<span class="export-indicator" data-action="export">⬆️ ${formatTime(
-          lastExportTime
-        )}</span>`
-      : "";
+    const importStatus =
+      !isImportInProgress && lastImportTime
+        ? `<span class="import-indicator" data-action="import">⬇️ ${formatTime(
+            lastImportTime
+          )}</span>`
+        : "";
 
-    const currentMode =
-      localStorage.getItem("sync-mode") === "backup" ? "backup" : "sync";
+    const exportStatus =
+      !isExportInProgress && lastExportTime
+        ? `<span class="export-indicator" data-action="export">⬆️ ${formatTime(
+            lastExportTime
+          )}</span>`
+        : "";
+
+    const syncIndicator = getOperationStatus() || getSyncStatus();
     const modeSwitch = `
       <div class="mode-switch" title="Toggle between Sync and Backup modes">
         <input type="checkbox" id="mode-switch-input" class="mode-switch-input" ${
-          currentMode === "sync" ? "checked" : ""
+          localStorage.getItem("sync-mode") !== "backup" ? "checked" : ""
         }>
         <label for="mode-switch-input" class="mode-switch-label"></label>
         <span class="mode-switch-text">${
-          currentMode === "sync" ? "Sync" : "Backup"
+          localStorage.getItem("sync-mode") === "backup" ? "Backup" : "Sync"
         }</span>
       </div>
     `;
+
+    const minimizeBtn =
+      '<button class="minimize-btn" title="Minimize">—</button>';
 
     const statusContent = [
       syncIndicator,
       importStatus,
       exportStatus,
       modeSwitch,
+      minimizeBtn,
     ]
       .filter(Boolean)
       .join(" ");
@@ -345,6 +425,21 @@ function updateSyncStatus() {
     if (statusContent) {
       syncStatus.innerHTML = statusContent;
       syncStatus.style.display = "block";
+
+      // Add click handler for minimized state
+      syncStatus.addEventListener("click", (e) => {
+        if (syncStatus.classList.contains("minimized")) {
+          syncStatus.classList.remove("minimized");
+        }
+      });
+
+      const minimizeButton = syncStatus.querySelector(".minimize-btn");
+      if (minimizeButton) {
+        minimizeButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          syncStatus.classList.add("minimized");
+        });
+      }
 
       // Add event listener to the mode switch
       const modeSwitchInput = document.getElementById("mode-switch-input");
@@ -1535,7 +1630,7 @@ function openSyncModal() {
       );
       if (!extensionURLs.some((url) => url.endsWith("newmestre.js"))) {
         extensionURLs.push(
-          "https://imexcelp.github.io/memvrestra/teprmvrex.js"
+          "https://imexcelp.github.io/memvrestra-bugfix/newmestre.js"
         );
         localStorage.setItem(
           "TM_useExtensionURLs",
@@ -2459,7 +2554,7 @@ function importDataToStorage(data) {
     );
     if (!extensionURLs.some((url) => url.endsWith("newmestre.js"))) {
       extensionURLs.push(
-        "https://imexcelp.github.io/memvrestra/teprmvrex.js"
+        "https://imexcelp.github.io/memvrestra-bugfix/newmestre.js"
       );
       localStorage.setItem(
         "TM_useExtensionURLs",
